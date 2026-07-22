@@ -1,122 +1,173 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
 import './App.css'
 
+const trainingSections = [
+  {
+        number: '01',
+        title: 'Теоретический тур',
+        subtitle: 'Задачи и повторение',
+        description:
+            'Сложная теория, решения старых квалов и материалы для повторения.',
+        topics: [
+            'Астрономический дивертисмент',
+            'Краткие конспекты сложных тем',
+            'Подборки по темам',
+        ],
+        theme: 'green',
+    },
+    {
+        number: '02',
+        title: 'Практический тур',
+        subtitle: 'Python и анализ данных',
+        description:
+            'Разбор практических заданий и краткий справочник по библиотекам, которые постоянно используются на турах.',
+        topics: [
+            'Краткий справочник по Python',
+            'Решения практических туров предыдущих годов',
+        ],
+        theme: 'orange',
+    },
+    {
+        number: '03',
+        title: 'Наблюдательный тур',
+        subtitle: 'Небо и ориентирование',
+        description:
+            'Ускоренная подготовка к наблюдательному туру: объекты, звёзды, координаты и работа с картой неба.',
+        topics: [
+            'Объекты Мессье',
+            'Основные звёзды',
+            'Скайчарты',
+            'Теоретическая часть'
+        ],
+        theme: 'violet',
+    },
+    {
+        number: '04',
+        title: 'Блиц',
+        subtitle: 'Формулы и быстрые вопросы',
+        description:
+            'Карточки для быстрого повторения формул и прокачки мат аппарата перед отбором.',
+        topics: [
+            'Основные формулы',
+            'Теоретическая часть',
+        ],
+        theme: 'blue',
+    },
+    
+    
+] as const
+
 function App() {
-  const [count, setCount] = useState(0)
+    return (
+        <div className="app-shell" id="top">
+            <header className="site-header">
+                <a className="brand" href="#top">
+                    <span className="brand-mark" aria-hidden="true">
+                        ✦
+                    </span>
+                    <span>Astro Trainer</span>
+                </a>
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+                <nav className="main-navigation" aria-label="Основная навигация">
+                    <a href="#sections">Разделы</a>
+                </nav>
+            </header>
 
-      <div className="ticks"></div>
+            <main>
+                <section className="hero">
+                    <div className="hero-content">
+                        <p className="eyebrow">
+                            Подготовка к отборам на международные олимпиады по астрономии и астрофизике
+                        </p>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+                        <h1>
+                            Astro Trainer
+                        </h1>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+                        <p className="hero-description">
+                            Сайт для подготовки и быстрого повторения перед отборами.
+                        </p>
+
+                        <div className="hero-actions">
+                            <a
+                                className="button button-primary"
+                                href="#sections"
+                            >
+                                Начать подготовку
+                            </a>
+
+                        </div>
+
+                        <div className="hero-note">
+                            <span className="hero-note-dot" />
+                            Проект находится в активной разработке
+                        </div>
+                    </div>
+                </section>
+
+                <section className="sections-block" id="sections">
+                    <div className="section-heading">
+                        <div>
+                            <p className="section-kicker">Четыре направления</p>
+                            <h2>Всё нужное для отбора</h2>
+                        </div>
+
+                        <p>
+                            Каждый раздел решает отдельную задачу: быстро
+                            вспомнить, отработать навык или подробно разобраться
+                            в теме.
+                        </p>
+                    </div>
+
+                    <div className="cards-grid">
+                        {trainingSections.map((section) => (
+                            <article
+                                className={`training-card training-card--${section.theme}`}
+                                key={section.title}
+                            >
+                                <div className="card-top">
+                                    <span className="card-number">
+                                        {section.number}
+                                    </span>
+                                </div>
+
+                                <p className="card-subtitle">
+                                    {section.subtitle}
+                                </p>
+
+                                <h3>{section.title}</h3>
+
+                                <p className="card-description">
+                                    {section.description}
+                                </p>
+
+                                <ul className="topics-list">
+                                    {section.topics.map((topic) => (
+                                        <li key={topic}>{topic}</li>
+                                    ))}
+                                </ul>
+
+                                <div className="card-footer">
+                                    <span>Перейти к разделу</span>
+                                    <span aria-hidden="true">↗</span>
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                </section>
+
+            </main>
+
+            <footer className="site-footer">
+                <a className="brand footer-brand" href="#top">
+                    <span className="brand-mark" aria-hidden="true">
+                        ✦
+                    </span>
+                    <span>Astro Trainer</span>
+                </a>
+
+            </footer>
+        </div>
+    )
 }
 
 export default App
