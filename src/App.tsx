@@ -1,170 +1,59 @@
+import { Navigate, Route, Routes } from 'react-router'
 import './App.css'
-
-const trainingSections = [
-  {
-        number: '01',
-        title: 'Теоретический тур',
-        subtitle: 'Задачи и повторение',
-        description:
-            'Сложная теория, решения старых квалов и материалы для повторения.',
-        topics: [
-            'Астрономический дивертисмент',
-            'Краткие конспекты сложных тем',
-            'Подборки по темам',
-        ],
-        theme: 'green',
-    },
-    {
-        number: '02',
-        title: 'Практический тур',
-        subtitle: 'Python и анализ данных',
-        description:
-            'Разбор практических заданий и краткий справочник по библиотекам, которые постоянно используются на турах.',
-        topics: [
-            'Краткий справочник по Python',
-            'Решения практических туров предыдущих годов',
-        ],
-        theme: 'orange',
-    },
-    {
-        number: '03',
-        title: 'Наблюдательный тур',
-        subtitle: 'Небо и ориентирование',
-        description:
-            'Ускоренная подготовка к наблюдательному туру: объекты, звёзды, координаты и работа с картой неба.',
-        topics: [
-            'Объекты Мессье',
-            'Основные звёзды',
-            'Скайчарты',
-            'Теоретическая часть'
-        ],
-        theme: 'violet',
-    },
-    {
-        number: '04',
-        title: 'Блиц',
-        subtitle: 'Формулы и быстрые вопросы',
-        description:
-            'Карточки для быстрого повторения формул и прокачки мат аппарата перед отбором.',
-        topics: [
-            'Основные формулы',
-            'Теоретическая часть',
-        ],
-        theme: 'blue',
-    },
-    
-    
-] as const
+import HomePage from './pages/HomePage'
+import SectionPlaceholderPage from './pages/SectionPlaceholderPage'
+import NablaLayout from './pages/nabla/NablaLayout'
+import NablaOverviewPage from './pages/nabla/NablaOverviewPage'
+import StarsPage from './pages/nabla/StarsPage'
+import MessierPage from './pages/nabla/MessierPage'
+import TheoryPage from './pages/nabla/TheoryPage'
+import SkyChartsPage from './pages/nabla/SkyChartsPage'
 
 function App() {
     return (
-        <div className="app-shell" id="top">
-            <header className="site-header">
-                <a className="brand" href="#top">
-                    <span className="brand-mark" aria-hidden="true">
-                        ✦
-                    </span>
-                    <span>Astro Trainer</span>
-                </a>
+        <Routes>
+            <Route path="/" element={<HomePage />} />
 
-                <nav className="main-navigation" aria-label="Основная навигация">
-                    <a href="#sections">Разделы</a>
-                </nav>
-            </header>
+            <Route
+                path="/theory"
+                element={
+                    <SectionPlaceholderPage
+                        title="Теоретический тур"
+                        description="Здесь появятся решения старых квалификаций, конспекты и астрономический дивертисмент."
+                    />
+                }
+            />
 
-            <main>
-                <section className="hero">
-                    <div className="hero-content">
-                        <p className="eyebrow">
-                            Подготовка к отборам на международные олимпиады по астрономии и астрофизике
-                        </p>
+            <Route
+                path="/practice"
+                element={
+                    <SectionPlaceholderPage
+                        title="Практический тур"
+                        description="Здесь появятся решения практических туров и справочник по Python-библиотекам."
+                    />
+                }
+            />
 
-                        <h1>
-                            Astro Trainer
-                        </h1>
+            <Route
+                path="/blitz"
+                element={
+                    <SectionPlaceholderPage
+                        title="Блиц"
+                        description="Здесь появятся карточки с формулами и быстрые задания."
+                    />
+                }
+            />
 
-                        <p className="hero-description">
-                            Сайт для подготовки и быстрого повторения перед отборами.
-                        </p>
+            <Route path="/nabla" element={<NablaLayout />}>
+                <Route index element={<NablaOverviewPage />} />
+                <Route path="stars" element={<StarsPage />} />
+                <Route path="messier" element={<MessierPage />} />
+                <Route path="theory" element={<TheoryPage />} />
+                <Route path="skycharts" element={<SkyChartsPage />} />
+            </Route>
 
-                        <div className="hero-actions">
-                            <a
-                                className="button button-primary"
-                                href="#sections"
-                            >
-                                Начать подготовку
-                            </a>
-
-                        </div>
-
-                        <div className="hero-note">
-                            <span className="hero-note-dot" />
-                            Проект находится в активной разработке
-                        </div>
-                    </div>
-                </section>
-
-                <section className="sections-block" id="sections">
-                    <div className="section-heading">
-                        <div>
-                            <p className="section-kicker">Четыре направления</p>
-                            <h2>Материалы для подготовки</h2>
-                        </div>
-
-                        <p>
-                            Каждый раздел отвечает за определённый тур отбора и содержит материалы для подготовки и повторения.
-                        </p>
-                    </div>
-
-                    <div className="cards-grid">
-                        {trainingSections.map((section) => (
-                            <article
-                                className={`training-card training-card--${section.theme}`}
-                                key={section.title}
-                            >
-                                <div className="card-top">
-                                    <span className="card-number">
-                                        {section.number}
-                                    </span>
-                                </div>
-
-                                <p className="card-subtitle">
-                                    {section.subtitle}
-                                </p>
-
-                                <h3>{section.title}</h3>
-
-                                <p className="card-description">
-                                    {section.description}
-                                </p>
-
-                                <ul className="topics-list">
-                                    {section.topics.map((topic) => (
-                                        <li key={topic}>{topic}</li>
-                                    ))}
-                                </ul>
-
-                                <div className="card-footer">
-                                    <span>Перейти к разделу</span>
-                                    <span aria-hidden="true">↗</span>
-                                </div>
-                            </article>
-                        ))}
-                    </div>
-                </section>
-
-            </main>
-
-            <footer className="site-footer">
-                <a className="brand footer-brand" href="#top">
-                    <span className="brand-mark" aria-hidden="true">
-                        ✦
-                    </span>
-                    <span>Astro Trainer</span>
-                </a>
-
-            </footer>
-        </div>
+            <Route path="*" element={<Navigate replace to="/" />} />
+        </Routes>
     )
 }
 
