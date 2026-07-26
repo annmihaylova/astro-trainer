@@ -8,18 +8,17 @@ export type MessierObject = {
     positionImage: string | null
 }
 
-/**
- * Данные импортированы из Astronomy__M.apkg.
- *
- * Фотография объекта и карта его положения хранятся как изображения.
- * Созвездие и координаты выводятся обычным текстом.
- *
- * В исходной колоде:
- * - 109 объектов: M2–M110;
- * - M1 отсутствует;
- * - у M40 отсутствует фотография самого объекта, но карта положения есть.
- */
+
 export const messierObjects: readonly MessierObject[] = [
+    {
+        "number": 1,
+        "title": "M1",
+        "constellation": "Taurus",
+        "rightAscension": "05h 34m 31.94s",
+        "declination": "+22° 00′ 52.20″",
+        "objectImage": "messier/m001-object.webp",
+        "positionImage": "messier/m001-position.webp"
+    },
     {
         "number": 2,
         "title": "M2",
@@ -368,7 +367,7 @@ export const messierObjects: readonly MessierObject[] = [
         "constellation": "Ursa Major",
         "rightAscension": "12h 22m 24.00s",
         "declination": "+58° 05′ 00.00″",  
-        "objectImage": null,
+        "objectImage": "messier/m040-object.webp",
         "positionImage": "messier/m040-position.webp"
     },
     {
