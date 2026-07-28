@@ -1,33 +1,20 @@
+import StarsTrainer from '../../components/StarsTrainer'
+
 function StarsPage() {
     return (
         <section className="nabla-content-page">
             <div className="nabla-intro">
                 <p className="module-kicker">Карточки</p>
-                <h2>Основные звёзды</h2>
+                <h2>Звёзды</h2>
                 <p>
-                    Здесь будет система интервального повторения основных
-                    звёзд. Позже сюда загрузим твои карточки из Anki.
+                    Два направления повторения: название → обозначение и
+                    положение, а также обозначение и положение → название.
+                    Можно изучать только 117 основных звёзд или всю колоду из
+                    229 звёзд.
                 </p>
             </div>
 
-            <div className="study-workspace">
-                <div className="study-toolbar">
-                    <span>Новых карточек: 0</span>
-                    <span>На повторении: 0</span>
-                    <span>Выучено: 0</span>
-                </div>
-
-                <div className="study-card-preview">
-                    <p className="study-card-label">
-                        Карточки ещё не загружены
-                    </p>
-                    <h3>Основные звёзды</h3>
-                    <p>
-                        После загрузки колоды здесь будет показываться передняя
-                        сторона текущей карточки.
-                    </p>
-                </div>
-            </div>
+            <StarsTrainer />
         </section>
     )
 }
