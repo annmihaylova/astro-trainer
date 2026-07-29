@@ -375,22 +375,18 @@ function StarsTrainer() {
                         <p className="stars-card-kicker">
                             {currentCard.promptKind === 'name'
                                 ? 'Название → обозначение и положение'
-                                : 'Обозначение и положение → название'}
+                                : 'Положение → обозначение и название'}
                         </p>
 
                         {currentCard.promptKind === 'name' ? (
                             <>
                                 <h3>{currentStar.name}</h3>
-                                <p className="stars-question-hint">
-                                    Вспомни обозначение звезды и найди её на
-                                    карте неба.
-                                </p>
                             </>
                         ) : (
                             <>
                                 <p className="stars-question-title">
                                     Как называется
-                                     эта звезда?
+                                    эта звезда?
                                 </p>
 
                                 <div className="stars-position-prompt">
