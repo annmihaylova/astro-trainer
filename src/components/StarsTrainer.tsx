@@ -23,11 +23,7 @@ type ProgressMap = Record<string, CardProgress>
 const PROGRESS_STORAGE_KEY = 'astro-trainer:stars-progress:v1'
 const MODE_STORAGE_KEY = 'astro-trainer:stars-mode:v1'
 
-// Карточка считается выученной после десяти правильных ответов подряд.
 const REQUIRED_STREAK = 10
-
-// Через сколько других карточек снова показать текущую карточку.
-// При каждом следующем правильном ответе интервал становится длиннее.
 const REVIEW_GAPS = [5, 7, 10, 15, 20, 30, 40, 50, 80, 120] as const
 
 const allTrainingCards: TrainingCard[] = stars.flatMap((star) => [
@@ -393,11 +389,11 @@ function StarsTrainer() {
                         ) : (
                             <>
                                 <p className="stars-question-title">
-                                    Как называется эта звезда?
+                                    Как называется
+                                     эта звезда?
                                 </p>
 
                                 <div className="stars-position-prompt">
-                                    <strong>{currentStar.designation}</strong>
                                     <img
                                         src={positionImageUrl}
                                         alt="Положение звезды на карте неба"
