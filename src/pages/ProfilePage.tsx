@@ -22,8 +22,10 @@ function ProfilePage() {
 
     const messierProgress = useMemo(
         () =>
-            getMessierProgressOverview(),
-        [],
+            getMessierProgressOverview(
+                user?.id ?? null,
+            ),
+        [user?.id],
     )
 
     const [

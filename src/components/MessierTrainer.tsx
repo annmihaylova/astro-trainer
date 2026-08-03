@@ -1,5 +1,27 @@
-import { useEffect, useMemo, useState } from 'react'
+import {
+    useEffect,
+    useRef,
+    useState,
+} from 'react'
+
+import { ApiError } from '../api/client'
+import {
+    clearMessierProgress,
+    getMessierProgress,
+    saveMessierProgress,
+} from '../api/messierProgress'
+import type {
+    MessierProgressItem,
+    MessierProgressRead,
+} from '../api/messierProgress'
+import { useAuth } from '../auth/AuthContext'
+import {
+    getAccessToken,
+} from '../auth/tokenStorage'
 import { messierObjects } from '../data/messierObjects'
+import {
+    getMessierProgressStorageKey,
+} from '../progress/messierProgress'
 import './MessierTrainer.css'
 
 
@@ -400,6 +422,248 @@ function loadQueue(
     }
 }
 
+function serverItemsToProgressMap(
+    items: readonly MessierProgressItem[],
+): ProgressMap {
+    const result: ProgressMap = {}
+
+    for (const item of items) {
+        result[item.item_id] = {
+            streak: item.streak,
+            correctAnswers:
+                item.correct_answers,
+            wrongAnswers:
+                item.wrong_answers,
+            learned: item.learned,
+            nextPromptKind:
+                item.next_prompt_kind,
+        }
+    }
+
+    return result
+}
+
+
+function progressMapToServerItems(
+    progress: ProgressMap,
+): MessierProgressItem[] {
+    return Object.entries(progress)
+        .map((
+            [itemId, itemProgress],
+        ) => ({
+            item_id: itemId,
+            streak:
+                itemProgress.streak,
+            correct_answers:
+                itemProgress
+                    .correctAnswers,
+            wrong_answers:
+                itemProgress
+                    .wrongAnswers,
+            learned:
+                itemProgress.learned,
+            next_prompt_kind:
+                itemProgress
+                    .nextPromptKind,
+        }))
+        .sort((firstItem, secondItem) => {
+            return (
+                Number(
+                    firstItem.item_id.slice(1),
+                )
+                - Number(
+                    secondItem.item_id.slice(1),
+                )
+            )
+        })
+}
+
+
+function restoreServerQueue(
+    progress: ProgressMap,
+    savedQueue: readonly string[],
+): number[] {
+    const unlearnedNumbers =
+        messierObjects
+            .filter((object) => {
+                return !progress[
+                    getProgressKey(
+                        object.number,
+                    )
+                ]?.learned
+            })
+            .map(
+                (object) =>
+                    object.number,
+            )
+
+    const allowedNumbers =
+        new Set(unlearnedNumbers)
+
+    const restoredQueue: number[] = []
+    const restoredNumbers =
+        new Set<number>()
+
+    for (const itemId of savedQueue) {
+        const objectNumber =
+            Number(itemId.slice(1))
+
+        if (
+            !Number.isInteger(objectNumber)
+            || !allowedNumbers.has(
+                objectNumber,
+            )
+            || restoredNumbers.has(
+                objectNumber,
+            )
+        ) {
+            continue
+        }
+
+        restoredQueue.push(
+            objectNumber,
+        )
+
+        restoredNumbers.add(
+            objectNumber,
+        )
+    }
+
+    const missingNumbers =
+        unlearnedNumbers.filter(
+            (objectNumber) =>
+                !restoredNumbers.has(
+                    objectNumber,
+                ),
+        )
+
+    return [
+        ...restoredQueue,
+        ...shuffle(missingNumbers),
+    ]
+}
+
+
+function removeLegacyLocalProgress(): void {
+    localStorage.removeItem(
+        STORAGE_KEY,
+    )
+
+    localStorage.removeItem(
+        QUEUE_STORAGE_KEY,
+    )
+
+    localStorage.removeItem(
+        LEGACY_STORAGE_KEY,
+    )
+}
+
+
+function getProgressErrorMessage(
+    error: unknown,
+): string {
+    if (error instanceof ApiError) {
+        return error.message
+    }
+
+    return (
+        'Не удалось связаться с сервером. '
+        + 'Проверь, запущен ли backend.'
+    )
+}
+
+
+/*
+ * В React StrictMode компонент может
+ * инициализироваться дважды.
+ *
+ * Map не позволяет двум одинаковым запросам
+ * одновременно перенести localStorage
+ * и перезаписать друг друга.
+ */
+const initializationRequests =
+    new Map<
+        string,
+        Promise<MessierProgressRead>
+    >()
+
+
+function initializeMessierProgress(
+    token: string,
+): Promise<MessierProgressRead> {
+    const existingRequest =
+        initializationRequests.get(token)
+
+    if (existingRequest) {
+        return existingRequest
+    }
+
+    const request = (
+        async () => {
+            const serverProgress =
+                await getMessierProgress(
+                    token,
+                )
+
+            if (
+                serverProgress
+                    .has_saved_progress
+            ) {
+                removeLegacyLocalProgress()
+
+                return serverProgress
+            }
+
+            const localProgress =
+                loadProgress()
+
+            const localQueue =
+                loadQueue(localProgress)
+
+            const migratedProgress =
+                await saveMessierProgress(
+                    token,
+                    {
+                        items:
+                            progressMapToServerItems(
+                                localProgress,
+                            ),
+
+                        queue:
+                            localQueue.map(
+                                getProgressKey,
+                            ),
+                    },
+                )
+
+            removeLegacyLocalProgress()
+
+            return migratedProgress
+        }
+    )()
+
+    initializationRequests.set(
+        token,
+        request,
+    )
+
+    void request
+        .finally(() => {
+            if (
+                initializationRequests
+                    .get(token)
+                === request
+            ) {
+                initializationRequests.delete(
+                    token,
+                )
+            }
+        })
+        .catch(() => undefined)
+
+    return request
+}
+
 function getAssetUrl(
     path: string | null,
 ): string | null {
@@ -412,45 +676,265 @@ function getAssetUrl(
 
 
 function MessierTrainer() {
-    const initialProgress = useMemo(
-        () => loadProgress(),
-        [],
-    )
+    const { user } = useAuth()
+
+    const userId =
+        user?.id ?? null
 
 
     const [progress, setProgress] =
-        useState<ProgressMap>(
-            initialProgress,
-        )
-
+        useState<ProgressMap>({})
 
     const [queue, setQueue] =
-        useState<number[]>(() =>
-            loadQueue(
-                initialProgress,
-            ),
-        )
-
+        useState<number[]>([])
 
     const [
         isAnswerVisible,
         setIsAnswerVisible,
     ] = useState(false)
 
+    const [
+        isProgressLoading,
+        setIsProgressLoading,
+    ] = useState(true)
+
+    const [
+        hasLoadedServerProgress,
+        setHasLoadedServerProgress,
+    ] = useState(false)
+
+    const [
+        loadError,
+        setLoadError,
+    ] = useState('')
+
+    const [
+        saveError,
+        setSaveError,
+    ] = useState('')
+
+
+    const saveChainRef =
+        useRef<Promise<void>>(
+            Promise.resolve(),
+        )
+
+    const isMountedRef =
+        useRef(true)
+
 
     useEffect(() => {
+        return () => {
+            isMountedRef.current = false
+        }
+    }, [])
+
+
+    useEffect(() => {
+        let isActive = true
+
+        setIsProgressLoading(true)
+        setHasLoadedServerProgress(false)
+        setLoadError('')
+        setSaveError('')
+
+
+        async function loadAccountProgress() {
+            if (userId === null) {
+                if (isActive) {
+                    setLoadError(
+                        'Не удалось определить аккаунт.',
+                    )
+
+                    setIsProgressLoading(
+                        false,
+                    )
+                }
+
+                return
+            }
+
+            const token =
+                getAccessToken()
+
+            if (!token) {
+                if (isActive) {
+                    setLoadError(
+                        'Необходимо войти в аккаунт.',
+                    )
+
+                    setIsProgressLoading(
+                        false,
+                    )
+                }
+
+                return
+            }
+
+            try {
+                const serverProgress =
+                    await initializeMessierProgress(
+                        token,
+                    )
+
+                const restoredProgress =
+                    serverItemsToProgressMap(
+                        serverProgress.items,
+                    )
+
+                const restoredQueue =
+                    restoreServerQueue(
+                        restoredProgress,
+                        serverProgress.queue,
+                    )
+
+                if (!isActive) {
+                    return
+                }
+
+                setProgress(
+                    restoredProgress,
+                )
+
+                setQueue(
+                    restoredQueue,
+                )
+
+                localStorage.setItem(
+                    getMessierProgressStorageKey(
+                        userId,
+                    ),
+                    JSON.stringify(
+                        restoredProgress,
+                    ),
+                )
+
+                setHasLoadedServerProgress(
+                    true,
+                )
+            } catch (error) {
+                if (!isActive) {
+                    return
+                }
+
+                setLoadError(
+                    getProgressErrorMessage(
+                        error,
+                    ),
+                )
+            } finally {
+                if (isActive) {
+                    setIsProgressLoading(
+                        false,
+                    )
+                }
+            }
+        }
+
+
+        void loadAccountProgress()
+
+
+        return () => {
+            isActive = false
+        }
+    }, [userId])
+
+
+    useEffect(() => {
+        if (
+            !hasLoadedServerProgress
+            || userId === null
+        ) {
+            return
+        }
+
+        /*
+         * Локальный кэш нужен пока для
+         * полоски в профиле.
+         *
+         * Главная версия всё равно
+         * сохраняется на backend.
+         */
         localStorage.setItem(
-            STORAGE_KEY,
+            getMessierProgressStorageKey(
+                userId,
+            ),
             JSON.stringify(progress),
         )
-    }, [progress])
 
-    useEffect(() => {
-        localStorage.setItem(
-            QUEUE_STORAGE_KEY,
-            JSON.stringify(queue),
-        )
-    }, [queue])
+
+        const saveTimeout =
+            window.setTimeout(() => {
+                const token =
+                    getAccessToken()
+
+                if (!token) {
+                    setSaveError(
+                        'Не удалось сохранить: '
+                        + 'сессия завершена.',
+                    )
+
+                    return
+                }
+
+                const items =
+                    progressMapToServerItems(
+                        progress,
+                    )
+
+                const savedQueue =
+                    queue.map(
+                        getProgressKey,
+                    )
+
+
+                saveChainRef.current =
+                    saveChainRef.current
+                        .catch(
+                            () => undefined,
+                        )
+                        .then(async () => {
+                            await saveMessierProgress(
+                                token,
+                                {
+                                    items,
+                                    queue:
+                                        savedQueue,
+                                },
+                            )
+
+                            if (
+                                isMountedRef.current
+                            ) {
+                                setSaveError('')
+                            }
+                        })
+                        .catch((error) => {
+                            if (
+                                isMountedRef.current
+                            ) {
+                                setSaveError(
+                                    getProgressErrorMessage(
+                                        error,
+                                    ),
+                                )
+                            }
+                        })
+            }, 350)
+
+
+        return () => {
+            window.clearTimeout(
+                saveTimeout,
+            )
+        }
+    }, [
+        progress,
+        queue,
+        hasLoadedServerProgress,
+        userId,
+    ])
 
 
     const currentObjectNumber =
@@ -498,6 +982,58 @@ function MessierTrainer() {
     function answerCurrentObject(
         knowsAnswer: boolean,
     ) {
+        
+        if (isProgressLoading) {
+            return (
+                <section className="messier-complete">
+                    <p className="messier-card-kicker">
+                        Синхронизация
+                    </p>
+
+                    <h3>
+                        Загружаем прогресс
+                    </h3>
+
+                    <p>
+                        Получаем карточки и очередь
+                        из твоего аккаунта.
+                    </p>
+                </section>
+            )
+        }
+
+
+        if (loadError) {
+            return (
+                <section className="messier-complete">
+                    <p className="messier-card-kicker">
+                        Ошибка синхронизации
+                    </p>
+
+                    <h3>
+                        Не удалось загрузить прогресс
+                    </h3>
+
+                    <p>
+                        {loadError}
+                    </p>
+
+                    <button
+                        className="
+                            messier-button
+                            messier-button--secondary
+                        "
+                        onClick={() => {
+                            window.location.reload()
+                        }}
+                        type="button"
+                    >
+                        Попробовать снова
+                    </button>
+                </section>
+            )
+        }
+        
         if (
             !currentObject
             || !currentProgress
@@ -599,7 +1135,7 @@ function MessierTrainer() {
     }
 
 
-    function resetProgress() {
+    async function resetProgress() {
         const shouldReset =
             window.confirm(
                 'Сбросить весь прогресс по объектам Мессье?',
@@ -609,27 +1145,56 @@ function MessierTrainer() {
             return
         }
 
-        localStorage.removeItem(
-            STORAGE_KEY,
-        )
+        const token =
+            getAccessToken()
 
-        localStorage.removeItem(
-            QUEUE_STORAGE_KEY,
-        )
+        if (!token) {
+            setSaveError(
+                'Необходимо войти в аккаунт.',
+            )
 
-        localStorage.removeItem(
-            LEGACY_STORAGE_KEY,
-        )
+            return
+        }
 
-        setProgress({})
+        try {
+            /*
+            * Ждём завершения предыдущего
+            * сохранения, чтобы старый PUT
+            * не восстановил данные после DELETE.
+            */
+            await saveChainRef.current
+                .catch(() => undefined)
 
-        setQueue(
-            buildQueue({}),
-        )
+            await clearMessierProgress(
+                token,
+            )
 
-        setIsAnswerVisible(
-            false,
-        )
+            if (userId !== null) {
+                localStorage.removeItem(
+                    getMessierProgressStorageKey(
+                        userId,
+                    ),
+                )
+            }
+
+            setProgress({})
+
+            setQueue(
+                buildQueue({}),
+            )
+
+            setIsAnswerVisible(
+                false,
+            )
+
+            setSaveError('')
+        } catch (error) {
+            setSaveError(
+                getProgressErrorMessage(
+                    error,
+                ),
+            )
+        }
     }
 
 
@@ -765,6 +1330,12 @@ function MessierTrainer() {
                 {REQUIRED_STREAK} правильных
                 ответов подряд.
             </p>
+
+            {saveError ? (
+                <p className="messier-training-note">
+                    Ошибка сохранения: {saveError}
+                </p>
+            ) : null}
 
 
             <article className="messier-study-card">

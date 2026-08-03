@@ -31,6 +31,8 @@ from app.database import (
 )
 from app.models import (
     EmailVerificationToken,
+    LearningProgress,
+    TrainingState,
     User,
 )
 from app.schemas import (
@@ -49,6 +51,20 @@ from app.security import (
     generate_email_verification_token,
     hash_email_verification_token,
 )
+
+from app.schemas import (
+    AuthResponse,
+    EmailVerificationConfirm,
+    EmailVerificationResponse,
+    MessierProgressItem,
+    MessierProgressRead,
+    MessierProgressWrite,
+    ProgressResetResponse,
+    UserLogin,
+    UserRead,
+    UserRegistration,
+)
+
 from app.config import (
     EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS,
     FRONTEND_URL,
@@ -152,6 +168,7 @@ CurrentUser = Annotated[
     Depends(get_current_user),
 ]
 
+MESSIER_DECK = "messier"
 
 def user_to_read(
     user: User,
@@ -166,6 +183,38 @@ def user_to_read(
             user.email_verified_at is not None
         ),
         created_at=user.created_at,
+    )
+
+def learning_progress_to_messier_item(
+    progress: LearningProgress,
+) -> MessierProgressItem:
+    if progress.next_prompt_kind not in {
+        "name",
+        "position",
+    }:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_500_INTERNAL_SERVER_ERROR
+            ),
+            detail=(
+                "В базе сохранён некорректный "
+                "тип карточки"
+            ),
+        )
+
+    return MessierProgressItem(
+        item_id=progress.item_id,
+        streak=progress.streak,
+        correct_answers=(
+            progress.correct_answers
+        ),
+        wrong_answers=(
+            progress.wrong_answers
+        ),
+        learned=progress.learned,
+        next_prompt_kind=(
+            progress.next_prompt_kind
+        ),
     )
 
 def utc_now() -> datetime:
@@ -577,4 +626,194 @@ def confirm_email_verification(
             "Электронная почта подтверждена"
         ),
         email_verified=True,
+    )
+
+
+@app.get(
+    "/progress/messier",
+    response_model=MessierProgressRead,
+)
+def get_messier_progress(
+    current_user: CurrentUser,
+    database: DatabaseSession,
+) -> MessierProgressRead:
+    progress_rows = list(
+        database.scalars(
+            select(
+                LearningProgress,
+            ).where(
+                LearningProgress.user_id
+                == current_user.id,
+
+                LearningProgress.deck
+                == MESSIER_DECK,
+            ),
+        ).all(),
+    )
+
+    progress_rows.sort(
+        key=lambda progress:
+            int(progress.item_id[1:]),
+    )
+
+    training_state = database.scalar(
+        select(
+            TrainingState,
+        ).where(
+            TrainingState.user_id
+            == current_user.id,
+
+            TrainingState.deck
+            == MESSIER_DECK,
+        ),
+    )
+
+    return MessierProgressRead(
+        items=[
+            learning_progress_to_messier_item(
+                progress,
+            )
+            for progress in progress_rows
+        ],
+        queue=(
+            list(training_state.queue)
+            if training_state is not None
+            else []
+        ),
+        has_saved_progress=(
+            bool(progress_rows)
+            or training_state is not None
+        ),
+    )
+
+@app.put(
+    "/progress/messier",
+    response_model=MessierProgressRead,
+)
+def save_messier_progress(
+    saved_progress: MessierProgressWrite,
+    current_user: CurrentUser,
+    database: DatabaseSession,
+) -> MessierProgressRead:
+    database.execute(
+        delete(
+            LearningProgress,
+        ).where(
+            LearningProgress.user_id
+            == current_user.id,
+
+            LearningProgress.deck
+            == MESSIER_DECK,
+        ),
+    )
+
+    for item in saved_progress.items:
+        database.add(
+            LearningProgress(
+                user_id=current_user.id,
+                deck=MESSIER_DECK,
+                item_id=item.item_id,
+                streak=item.streak,
+                correct_answers=(
+                    item.correct_answers
+                ),
+                wrong_answers=(
+                    item.wrong_answers
+                ),
+                learned=item.learned,
+                next_prompt_kind=(
+                    item.next_prompt_kind
+                ),
+            ),
+        )
+
+    training_state = database.scalar(
+        select(
+            TrainingState,
+        ).where(
+            TrainingState.user_id
+            == current_user.id,
+
+            TrainingState.deck
+            == MESSIER_DECK,
+        ),
+    )
+
+    if training_state is None:
+        training_state = TrainingState(
+            user_id=current_user.id,
+            deck=MESSIER_DECK,
+            queue=list(
+                saved_progress.queue,
+            ),
+        )
+
+        database.add(
+            training_state,
+        )
+    else:
+        training_state.queue = list(
+            saved_progress.queue,
+        )
+
+    try:
+        database.commit()
+    except IntegrityError as error:
+        database.rollback()
+
+        raise HTTPException(
+            status_code=(
+                status.HTTP_409_CONFLICT
+            ),
+            detail=(
+                "Не удалось сохранить прогресс "
+                "из-за конфликта данных"
+            ),
+        ) from error
+
+    return MessierProgressRead(
+        items=saved_progress.items,
+        queue=saved_progress.queue,
+        has_saved_progress=True,
+    )
+
+@app.delete(
+    "/progress/messier",
+    response_model=ProgressResetResponse,
+)
+def reset_messier_progress(
+    current_user: CurrentUser,
+    database: DatabaseSession,
+) -> ProgressResetResponse:
+    database.execute(
+        delete(
+            LearningProgress,
+        ).where(
+            LearningProgress.user_id
+            == current_user.id,
+
+            LearningProgress.deck
+            == MESSIER_DECK,
+        ),
+    )
+
+    database.execute(
+        delete(
+            TrainingState,
+        ).where(
+            TrainingState.user_id
+            == current_user.id,
+
+            TrainingState.deck
+            == MESSIER_DECK,
+        ),
+    )
+
+    database.commit()
+
+    return ProgressResetResponse(
+        message=(
+            "Прогресс по объектам Мессье "
+            "сброшен"
+        ),
     )

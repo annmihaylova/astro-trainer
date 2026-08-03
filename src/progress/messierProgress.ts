@@ -1,3 +1,6 @@
+import type {
+    MessierProgressItem,
+} from '../api/messierProgress'
 import { messierObjects } from '../data/messierObjects'
 
 
@@ -41,10 +44,17 @@ export type MessierProgressOverview = {
 }
 
 
-const STORAGE_KEY =
-    'astro-trainer:messier-progress:v4'
-
 const REQUIRED_STREAK = 16
+
+
+export function getMessierProgressStorageKey(
+    userId: number,
+): string {
+    return (
+        'astro-trainer:messier-progress:'
+        + `user-${userId}:v1`
+    )
+}
 
 
 function getProgressKey(
@@ -54,11 +64,19 @@ function getProgressKey(
 }
 
 
-function loadStoredProgress(): StoredProgressMap {
+function loadStoredProgress(
+    userId: number | null,
+): StoredProgressMap {
+    if (userId === null) {
+        return {}
+    }
+
     try {
         const storedValue =
             localStorage.getItem(
-                STORAGE_KEY,
+                getMessierProgressStorageKey(
+                    userId,
+                ),
             )
 
         if (!storedValue) {
@@ -86,10 +104,11 @@ function clamp(
 }
 
 
-export function getMessierProgressOverview():
-    MessierProgressOverview {
+export function getMessierProgressOverview(
+    userId: number | null,
+): MessierProgressOverview {
     const storedProgress =
-        loadStoredProgress()
+        loadStoredProgress(userId)
 
     const items: ProgressStripItem[] =
         messierObjects.map((object) => {
@@ -201,4 +220,24 @@ export function getMessierProgressOverview():
             REQUIRED_STREAK,
         items,
     }
+}
+
+
+export function messierItemsToStoredProgress(
+    items: readonly MessierProgressItem[],
+): StoredProgressMap {
+    const progress: StoredProgressMap = {}
+
+    for (const item of items) {
+        progress[item.item_id] = {
+            streak: item.streak,
+            correctAnswers:
+                item.correct_answers,
+            wrongAnswers:
+                item.wrong_answers,
+            learned: item.learned,
+        }
+    }
+
+    return progress
 }

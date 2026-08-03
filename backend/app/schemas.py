@@ -1,6 +1,6 @@
 from datetime import datetime
 from string import ascii_letters, digits, punctuation
-from typing import Any, Self
+from typing import Any, Literal, Self
 from unicodedata import category, normalize
 
 from pydantic import (
@@ -203,3 +203,185 @@ class EmailVerificationConfirm(BaseModel):
 class EmailVerificationResponse(BaseModel):
     message: str
     email_verified: bool
+
+
+MESSIER_REQUIRED_STREAK = 16
+MESSIER_OBJECTS_COUNT = 110
+
+
+def validate_messier_item_id(
+    value: str,
+) -> str:
+    if not value.startswith("m"):
+        raise ValueError(
+            "Идентификатор объекта должен "
+            "начинаться с буквы m",
+        )
+
+    number_text = value[1:]
+
+    if not number_text.isdigit():
+        raise ValueError(
+            "После буквы m должен находиться "
+            "номер объекта",
+        )
+
+    object_number = int(number_text)
+
+    if not (
+        1
+        <= object_number
+        <= MESSIER_OBJECTS_COUNT
+    ):
+        raise ValueError(
+            "Номер объекта Мессье должен "
+            "находиться от 1 до 110",
+        )
+
+    expected_value = f"m{object_number}"
+
+    if value != expected_value:
+        raise ValueError(
+            "Идентификатор должен иметь вид "
+            "m1, m42 или m110",
+        )
+
+    return value
+
+
+class MessierProgressItem(BaseModel):
+    item_id: str = Field(
+        min_length=2,
+        max_length=4,
+    )
+
+    streak: int = Field(
+        ge=0,
+        le=MESSIER_REQUIRED_STREAK,
+    )
+
+    correct_answers: int = Field(
+        ge=0,
+    )
+
+    wrong_answers: int = Field(
+        ge=0,
+    )
+
+    learned: bool
+
+    next_prompt_kind: Literal[
+        "name",
+        "position",
+    ]
+
+    @field_validator("item_id")
+    @classmethod
+    def validate_item_id(
+        cls,
+        value: str,
+    ) -> str:
+        return validate_messier_item_id(
+            value,
+        )
+
+    @model_validator(mode="after")
+    def validate_learning_state(
+        self,
+    ) -> Self:
+        expected_learned = (
+            self.streak
+            >= MESSIER_REQUIRED_STREAK
+        )
+
+        if self.learned != expected_learned:
+            raise ValueError(
+                "learned должен быть true только "
+                "при streak, равном 16",
+            )
+
+        if (
+            self.correct_answers
+            < self.streak
+        ):
+            raise ValueError(
+                "Количество правильных ответов "
+                "не может быть меньше streak",
+            )
+
+        return self
+
+
+class MessierProgressWrite(BaseModel):
+    items: list[
+        MessierProgressItem
+    ] = Field(
+        default_factory=list,
+        max_length=MESSIER_OBJECTS_COUNT,
+    )
+
+    queue: list[str] = Field(
+        default_factory=list,
+        max_length=MESSIER_OBJECTS_COUNT,
+    )
+
+    @model_validator(mode="after")
+    def validate_progress(
+        self,
+    ) -> Self:
+        progress_item_ids = [
+            item.item_id
+            for item in self.items
+        ]
+
+        if (
+            len(progress_item_ids)
+            != len(set(progress_item_ids))
+        ):
+            raise ValueError(
+                "Один объект не может дважды "
+                "присутствовать в прогрессе",
+            )
+
+        for item_id in self.queue:
+            validate_messier_item_id(
+                item_id,
+            )
+
+        if (
+            len(self.queue)
+            != len(set(self.queue))
+        ):
+            raise ValueError(
+                "Один объект не может дважды "
+                "присутствовать в очереди",
+            )
+
+        learned_item_ids = {
+            item.item_id
+            for item in self.items
+            if item.learned
+        }
+
+        learned_objects_in_queue = (
+            learned_item_ids
+            .intersection(self.queue)
+        )
+
+        if learned_objects_in_queue:
+            raise ValueError(
+                "Выученные объекты не должны "
+                "находиться в очереди",
+            )
+
+        return self
+
+
+class MessierProgressRead(BaseModel):
+    items: list[MessierProgressItem]
+    queue: list[str]
+    has_saved_progress: bool
+
+
+class ProgressResetResponse(BaseModel):
+    message: str
