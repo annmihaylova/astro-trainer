@@ -192,3 +192,14 @@ class AuthResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserRead
+
+class EmailVerificationConfirm(BaseModel):
+    token: str = Field(
+        min_length=32,
+        max_length=512,
+    )
+
+
+class EmailVerificationResponse(BaseModel):
+    message: str
+    email_verified: bool

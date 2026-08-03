@@ -1,5 +1,9 @@
-import { useMemo } from 'react'
+import {
+    useMemo,
+    useState,
+} from 'react'
 import { Link } from 'react-router'
+import { ApiError } from '../api/client'
 
 import { useAuth } from '../auth/AuthContext'
 import DeckProgressStrip from '../components/DeckProgressStrip'
@@ -10,7 +14,10 @@ import './ProfilePage.css'
 
 
 function ProfilePage() {
-    const { user } = useAuth()
+    const {
+        user,
+        requestVerificationEmail,
+    } = useAuth()
 
 
     const messierProgress = useMemo(
@@ -18,6 +25,21 @@ function ProfilePage() {
             getMessierProgressOverview(),
         [],
     )
+
+    const [
+        isSendingVerification,
+        setIsSendingVerification,
+    ] = useState(false)
+
+    const [
+        verificationMessage,
+        setVerificationMessage,
+    ] = useState('')
+
+    const [
+        verificationError,
+        setVerificationError,
+    ] = useState(false)
 
 
     if (!user) {
@@ -39,6 +61,36 @@ function ProfilePage() {
             ),
         )
 
+    async function handleSendVerification() {
+        setIsSendingVerification(true)
+        setVerificationMessage('')
+        setVerificationError(false)
+
+        try {
+            const responseMessage =
+                await requestVerificationEmail()
+
+            setVerificationMessage(
+                responseMessage
+                + '. В локальном режиме '
+                + 'ссылка показана в терминале backend.',
+            )
+        } catch (error) {
+            setVerificationError(true)
+
+            if (error instanceof ApiError) {
+                setVerificationMessage(
+                    error.message,
+                )
+            } else {
+                setVerificationMessage(
+                    'Не удалось создать ссылку подтверждения.',
+                )
+            }
+        } finally {
+            setIsSendingVerification(false)
+        }
+    }
 
     return (
         <main className="profile-page">
@@ -86,12 +138,61 @@ function ProfilePage() {
                         <dt>
                             Подтверждение почты
                         </dt>
+
                         <dd>
-                            {user.email_verified
-                                ? 'Подтверждена'
-                                : (
-                                    'Пока не подтверждена'
-                                )}
+                            <span
+                                className={
+                                    user.email_verified
+                                        ? (
+                                            'profile-email-status '
+                                            + 'profile-email-status--verified'
+                                        )
+                                        : (
+                                            'profile-email-status '
+                                            + 'profile-email-status--pending'
+                                        )
+                                }
+                            >
+                                {user.email_verified
+                                    ? 'Подтверждена'
+                                    : 'Пока не подтверждена'}
+                            </span>
+
+
+                            {!user.email_verified ? (
+                                <div className="profile-email-actions">
+                                    <button
+                                        className="profile-email-button"
+                                        disabled={
+                                            isSendingVerification
+                                        }
+                                        onClick={
+                                            handleSendVerification
+                                        }
+                                        type="button"
+                                    >
+                                        {isSendingVerification
+                                            ? 'Создаём ссылку...'
+                                            : 'Отправить ссылку ещё раз'}
+                                    </button>
+
+
+                                    {verificationMessage ? (
+                                        <p
+                                            className={
+                                                verificationError
+                                                    ? (
+                                                        'profile-email-message '
+                                                        + 'profile-email-message--error'
+                                                    )
+                                                    : 'profile-email-message'
+                                            }
+                                        >
+                                            {verificationMessage}
+                                        </p>
+                                    ) : null}
+                                </div>
+                            ) : null}
                         </dd>
                     </div>
 

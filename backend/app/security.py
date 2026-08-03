@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
+from secrets import token_urlsafe
 
 import jwt
 from jwt.exceptions import InvalidTokenError
@@ -107,3 +109,14 @@ def decode_access_token(
         return None
 
     return int(subject)
+
+def generate_email_verification_token() -> str:
+    return token_urlsafe(32)
+
+
+def hash_email_verification_token(
+    token: str,
+) -> str:
+    return sha256(
+        token.encode("utf-8"),
+    ).hexdigest()

@@ -41,3 +41,31 @@ if ACCESS_TOKEN_EXPIRE_MINUTES <= 0:
     raise RuntimeError(
         "ACCESS_TOKEN_EXPIRE_MINUTES должен быть больше нуля",
     )
+
+FRONTEND_URL = getenv(
+    "FRONTEND_URL",
+    "http://localhost:5173",
+).rstrip("/")
+
+
+email_verification_expire_raw = getenv(
+    "EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS",
+    "8",
+)
+
+try:
+    EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS = int(
+        email_verification_expire_raw,
+    )
+except ValueError as error:
+    raise RuntimeError(
+        "EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS "
+        "должен быть целым числом",
+    ) from error
+
+
+if EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS <= 0:
+    raise RuntimeError(
+        "EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS "
+        "должен быть больше нуля",
+    )

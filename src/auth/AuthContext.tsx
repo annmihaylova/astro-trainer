@@ -1,5 +1,6 @@
 import {
     createContext,
+    useCallback,
     useContext,
     useEffect,
     useState,
@@ -12,6 +13,7 @@ import {
     getCurrentUser,
     loginUser,
     registerUser,
+    requestEmailVerification,
 } from '../api/auth'
 import type {
     AuthUser,
@@ -34,6 +36,8 @@ type AuthContextValue = {
     register: (
         registration: RegisterUserRequest,
     ) => Promise<void>
+    refreshUser: () => Promise<void>
+    requestVerificationEmail: () => Promise<string>
     logout: () => void
 }
 
@@ -99,6 +103,56 @@ export function AuthProvider({
         }
     }, [])
 
+    const refreshUser = useCallback(
+        async (): Promise<void> => {
+            const token = getAccessToken()
+
+            if (!token) {
+                setUser(null)
+                return
+            }
+
+            try {
+                const currentUser =
+                    await getCurrentUser(token)
+
+                setUser(currentUser)
+            } catch (error) {
+                clearAccessToken()
+                setUser(null)
+
+                throw error
+            }
+        },
+        [],
+    )
+
+
+    const requestVerificationEmail =
+        useCallback(
+            async (): Promise<string> => {
+                const token =
+                    getAccessToken()
+
+                if (!token) {
+                    throw new Error(
+                        'Необходимо войти в аккаунт',
+                    )
+                }
+
+                const response =
+                    await requestEmailVerification(
+                        token,
+                    )
+
+                if (response.email_verified) {
+                    await refreshUser()
+                }
+
+                return response.message
+            },
+            [refreshUser],
+        )
 
     async function login(
         credentials: LoginUserRequest,
@@ -141,6 +195,8 @@ export function AuthProvider({
                 isLoading,
                 login,
                 register,
+                refreshUser,
+                requestVerificationEmail,
                 logout,
             }}
         >

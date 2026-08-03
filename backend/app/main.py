@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -13,7 +14,13 @@ from fastapi.security import (
     HTTPAuthorizationCredentials,
     HTTPBearer,
 )
-from sqlalchemy import inspect, select, text
+from sqlalchemy import (
+    delete,
+    inspect,
+    select,
+    text,
+    update,
+)
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -22,9 +29,14 @@ from app.database import (
     engine,
     get_database_session,
 )
-from app.models import User
+from app.models import (
+    EmailVerificationToken,
+    User,
+)
 from app.schemas import (
     AuthResponse,
+    EmailVerificationConfirm,
+    EmailVerificationResponse,
     UserLogin,
     UserRead,
     UserRegistration,
@@ -34,6 +46,15 @@ from app.security import (
     decode_access_token,
     hash_password,
     verify_password_safely,
+    generate_email_verification_token,
+    hash_email_verification_token,
+)
+from app.config import (
+    EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS,
+    FRONTEND_URL,
+)
+from app.email_service import (
+    send_verification_email_dev,
 )
 
 
@@ -147,6 +168,62 @@ def user_to_read(
         created_at=user.created_at,
     )
 
+def utc_now() -> datetime:
+    return datetime.now(
+        timezone.utc,
+    ).replace(
+        tzinfo=None,
+    )
+
+
+def create_email_verification_record(
+    user_id: int,
+    database: DatabaseSession,
+) -> str:
+    database.execute(
+        delete(
+            EmailVerificationToken,
+        ).where(
+            EmailVerificationToken.user_id
+            == user_id,
+        ),
+    )
+
+    raw_token = (
+        generate_email_verification_token()
+    )
+
+    token_record = EmailVerificationToken(
+        user_id=user_id,
+        token_hash=(
+            hash_email_verification_token(
+                raw_token,
+            )
+        ),
+        expires_at=(
+            utc_now()
+            + timedelta(
+                hours=(
+                    EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS
+                ),
+            )
+        ),
+    )
+
+    database.add(
+        token_record,
+    )
+
+    return raw_token
+
+
+def build_email_verification_url(
+    token: str,
+) -> str:
+    return (
+        f"{FRONTEND_URL}"
+        f"/verify-email?token={token}"
+    )
 
 @app.get("/")
 def root() -> dict[str, str]:
@@ -282,6 +359,15 @@ def register_user(
     database.add(user)
 
     try:
+        database.flush()
+
+        raw_verification_token = (
+            create_email_verification_record(
+                user.id,
+                database,
+            )
+        )
+
         database.commit()
     except IntegrityError as error:
         database.rollback()
@@ -295,6 +381,15 @@ def register_user(
         ) from error
 
     database.refresh(user)
+
+    send_verification_email_dev(
+        email=user.email,
+        verification_url=(
+            build_email_verification_url(
+                raw_verification_token,
+            )
+        ),
+    )
 
     return AuthResponse(
         access_token=create_access_token(
@@ -355,4 +450,131 @@ def get_my_account(
 ) -> UserRead:
     return user_to_read(
         current_user,
+    )
+
+@app.post(
+    "/email-verification/request",
+    response_model=EmailVerificationResponse,
+)
+def request_email_verification(
+    current_user: CurrentUser,
+    database: DatabaseSession,
+) -> EmailVerificationResponse:
+    if (
+        current_user.email_verified_at
+        is not None
+    ):
+        return EmailVerificationResponse(
+            message=(
+                "Электронная почта "
+                "уже подтверждена"
+            ),
+            email_verified=True,
+        )
+
+    raw_token = (
+        create_email_verification_record(
+            current_user.id,
+            database,
+        )
+    )
+
+    database.commit()
+
+    send_verification_email_dev(
+        email=current_user.email,
+        verification_url=(
+            build_email_verification_url(
+                raw_token,
+            )
+        ),
+    )
+
+    return EmailVerificationResponse(
+        message=(
+            "Новая ссылка подтверждения создана"
+        ),
+        email_verified=False,
+    )
+
+@app.post(
+    "/email-verification/confirm",
+    response_model=EmailVerificationResponse,
+)
+def confirm_email_verification(
+    confirmation: EmailVerificationConfirm,
+    database: DatabaseSession,
+) -> EmailVerificationResponse:
+    now = utc_now()
+
+    token_hash = (
+        hash_email_verification_token(
+            confirmation.token,
+        )
+    )
+
+    token_record = database.scalar(
+        select(
+            EmailVerificationToken,
+        ).where(
+            EmailVerificationToken.token_hash
+            == token_hash,
+
+            EmailVerificationToken.used_at
+            .is_(None),
+        ),
+    )
+
+    if (
+        token_record is None
+        or token_record.expires_at <= now
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Ссылка подтверждения "
+                "недействительна или истекла"
+            ),
+        )
+
+    user = database.get(
+        User,
+        token_record.user_id,
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Аккаунт для этой ссылки "
+                "не найден"
+            ),
+        )
+
+    if user.email_verified_at is None:
+        user.email_verified_at = now
+
+    database.execute(
+        update(
+            EmailVerificationToken,
+        )
+        .where(
+            EmailVerificationToken.user_id
+            == user.id,
+
+            EmailVerificationToken.used_at
+            .is_(None),
+        )
+        .values(
+            used_at=now,
+        ),
+    )
+
+    database.commit()
+
+    return EmailVerificationResponse(
+        message=(
+            "Электронная почта подтверждена"
+        ),
+        email_verified=True,
     )

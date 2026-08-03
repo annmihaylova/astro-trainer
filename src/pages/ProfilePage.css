@@ -168,3 +168,84 @@
     display: grid;
     gap: 18px;
 }
+
+.profile-email-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-weight: 650;
+}
+
+.profile-email-status::before {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    content: '';
+}
+
+.profile-email-status--verified {
+    color: #73e3ae;
+}
+
+.profile-email-status--verified::before {
+    background: #5ed49a;
+    box-shadow:
+        0 0 10px rgba(94, 212, 154, 0.36);
+}
+
+.profile-email-status--pending {
+    color: #efc56d;
+}
+
+.profile-email-status--pending::before {
+    background: #e8b95a;
+    box-shadow:
+        0 0 10px rgba(232, 185, 90, 0.3);
+}
+
+.profile-email-actions {
+    display: grid;
+    justify-items: start;
+    gap: 9px;
+    margin-top: 13px;
+}
+
+.profile-email-button {
+    min-height: 38px;
+    padding: 0 14px;
+    border: 1px solid rgba(169, 156, 255, 0.28);
+    border-radius: 10px;
+    background: rgba(169, 156, 255, 0.09);
+    color: #c6bdff;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        border-color 150ms ease,
+        background 150ms ease,
+        color 150ms ease;
+}
+
+.profile-email-button:hover:not(:disabled) {
+    border-color: rgba(169, 156, 255, 0.55);
+    background: rgba(169, 156, 255, 0.15);
+    color: #ffffff;
+}
+
+.profile-email-button:disabled {
+    cursor: wait;
+    opacity: 0.55;
+}
+
+.profile-email-message {
+    max-width: 420px;
+    margin: 0;
+    color: rgba(247, 247, 251, 0.52);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.profile-email-message--error {
+    color: #ffaaaa;
+}

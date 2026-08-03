@@ -71,3 +71,36 @@ export function getCurrentUser(
         },
     )
 }
+
+export type EmailVerificationResponse = {
+    message: string
+    email_verified: boolean
+}
+
+
+export function requestEmailVerification(
+    token: string,
+): Promise<EmailVerificationResponse> {
+    return apiRequest<EmailVerificationResponse>(
+        '/email-verification/request',
+        {
+            method: 'POST',
+            token,
+        },
+    )
+}
+
+
+export function confirmEmailVerification(
+    verificationToken: string,
+): Promise<EmailVerificationResponse> {
+    return apiRequest<EmailVerificationResponse>(
+        '/email-verification/confirm',
+        {
+            method: 'POST',
+            body: {
+                token: verificationToken,
+            },
+        },
+    )
+}

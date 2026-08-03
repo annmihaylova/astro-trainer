@@ -13,6 +13,7 @@ import SectionPlaceholderPage from './pages/SectionPlaceholderPage'
 
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
+import VerifyEmailPage from './pages/auth/VerifyEmailPage'
 
 import NablaLayout from './pages/nabla/NablaLayout'
 import NablaOverviewPage from './pages/nabla/NablaOverviewPage'
@@ -35,6 +36,10 @@ function App() {
                 element={<RegisterPage />}
             />
 
+            <Route
+                path="/verify-email"
+                element={<VerifyEmailPage />}
+            />
 
             <Route element={<ProtectedRoute />}>
                 <Route
