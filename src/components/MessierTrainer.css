@@ -347,3 +347,14 @@
         text-align: left;
     }
 }
+
+.messier-training-note {
+    margin: 0;
+    padding: 14px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.035);
+    color: rgba(247, 247, 251, 0.58);
+    font-size: 13px;
+    line-height: 1.55;
+}

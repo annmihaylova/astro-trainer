@@ -1,0 +1,198 @@
+.deck-progress-card {
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 22px;
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.055),
+            rgba(255, 255, 255, 0.022)
+        );
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.deck-progress-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 28px;
+    margin-bottom: 24px;
+}
+
+.deck-progress-kicker {
+    margin: 0 0 7px;
+    color: #aa9cff;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+}
+
+.deck-progress-heading h3 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.deck-progress-heading > div > p:last-child {
+    max-width: 640px;
+    margin: 9px 0 0;
+    color: rgba(247, 247, 251, 0.51);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.deck-progress-percentage {
+    flex: 0 0 auto;
+    display: grid;
+    justify-items: end;
+    gap: 3px;
+}
+
+.deck-progress-percentage strong {
+    font-size: 30px;
+    line-height: 1;
+}
+
+.deck-progress-percentage span {
+    color: rgba(247, 247, 251, 0.43);
+    font-size: 11px;
+}
+
+.deck-progress-bar-viewport {
+    overflow-x: auto;
+    padding: 5px 1px 9px;
+    scrollbar-color:
+        rgba(169, 156, 255, 0.38)
+        transparent;
+    scrollbar-width: thin;
+}
+
+.deck-progress-bar {
+    display: grid;
+    gap: 2px;
+    min-width: max(760px, 100%);
+    height: 30px;
+    box-sizing: border-box;
+    padding: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 12px;
+    background: rgba(4, 6, 14, 0.46);
+}
+
+.deck-progress-segment {
+    display: block;
+    min-width: 0;
+    height: 100%;
+    border-radius: 3px;
+    opacity: 0.93;
+    transform-origin: center;
+    transition:
+        transform 140ms ease,
+        filter 140ms ease,
+        opacity 140ms ease;
+}
+
+.deck-progress-segment:hover {
+    z-index: 2;
+    opacity: 1;
+    filter: brightness(1.12);
+    transform:
+        translateY(-2px)
+        scaleY(1.18);
+}
+
+.deck-progress-segment--learned {
+    box-shadow:
+        0 0 12px rgba(94, 212, 154, 0.18);
+}
+
+.deck-progress-segment--in-progress {
+    box-shadow:
+        0 0 10px rgba(244, 184, 73, 0.12);
+}
+
+.deck-progress-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 22px;
+    margin-top: 18px;
+}
+
+.deck-progress-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.deck-progress-legend-item > div {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+}
+
+.deck-progress-legend-item span {
+    color: rgba(247, 247, 251, 0.51);
+    font-size: 12px;
+}
+
+.deck-progress-legend-item strong {
+    color: #ffffff;
+    font-size: 15px;
+}
+
+.deck-progress-legend-dot {
+    width: 10px;
+    height: 10px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+}
+
+.deck-progress-legend-dot--learned {
+    background: #5ed49a;
+    box-shadow:
+        0 0 10px rgba(94, 212, 154, 0.35);
+}
+
+.deck-progress-legend-dot--progress {
+    background:
+        linear-gradient(
+            135deg,
+            #b97835,
+            #f4d35e
+        );
+    box-shadow:
+        0 0 10px rgba(244, 184, 73, 0.26);
+}
+
+.deck-progress-legend-dot--empty {
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.deck-progress-total {
+    margin-left: auto;
+    color: rgba(247, 247, 251, 0.4);
+    font-size: 12px;
+}
+
+@media (max-width: 700px) {
+    .deck-progress-card {
+        padding: 20px 16px;
+        border-radius: 18px;
+    }
+
+    .deck-progress-heading {
+        display: grid;
+        gap: 16px;
+    }
+
+    .deck-progress-percentage {
+        justify-items: start;
+    }
+
+    .deck-progress-total {
+        width: 100%;
+        margin-left: 0;
+    }
+}

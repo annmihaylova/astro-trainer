@@ -132,6 +132,7 @@ function HomePage() {
                             >
                                 Начать подготовку
                             </a>
+
                         </div>
 
                         <div className="hero-note">

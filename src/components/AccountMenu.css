@@ -1,0 +1,150 @@
+:root {
+    --account-menu-safe-area: 96px;
+}
+
+.site-header,
+.nabla-topbar {
+    box-sizing: border-box;
+    padding-right: var(--account-menu-safe-area);
+}
+
+.account-menu {
+    position: fixed;
+    top: 22px;
+    right: 24px;
+    z-index: 1000;
+}
+
+.account-menu-trigger {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    outline: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.account-menu-trigger:focus-visible {
+    outline: 3px solid rgba(156, 140, 255, 0.45);
+    outline-offset: 3px;
+}
+
+.account-menu-avatar {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 50%;
+    background: linear-gradient(
+        135deg,
+        #745fff,
+        #aa8cff
+    );
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    transition:
+        transform 160ms ease,
+        box-shadow 160ms ease;
+}
+
+.account-menu-trigger:hover .account-menu-avatar {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38);
+}
+
+.account-menu-user {
+    display: grid;
+    gap: 5px;
+    padding: 18px;
+}
+
+.account-menu-user-name {
+    overflow: hidden;
+    font-size: 15px;
+    font-weight: 750;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.account-menu-login {
+    overflow: hidden;
+    color: rgba(247, 247, 251, 0.52);
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.account-menu-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.09);
+}
+
+.account-menu-item {
+    display: flex;
+    width: 100%;
+    box-sizing: border-box;
+    align-items: center;
+    min-height: 46px;
+    padding: 0 18px;
+    border: 0;
+    background: transparent;
+    color: rgba(247, 247, 251, 0.84);
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+        background 140ms ease,
+        color 140ms ease;
+}
+
+.account-menu-item:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #ffffff;
+}
+
+.account-menu-item--logout {
+    color: #ffaaaa;
+}
+
+.account-menu-item--logout:hover {
+    background: rgba(255, 90, 90, 0.1);
+    color: #ffc1c1;
+}
+
+@media (max-width: 760px) {
+    :root {
+        --account-menu-safe-area: 72px;
+    }
+
+    .account-menu {
+        top: 12px;
+        right: 12px;
+    }
+
+    .account-menu-trigger,
+    .account-menu-avatar {
+        width: 42px;
+        height: 42px;
+    }
+
+    .account-menu-dropdown {
+        width: min(
+            250px,
+            calc(100vw - 24px)
+        );
+    }
+
+    .main-navigation {
+        display: none;
+    }
+}
