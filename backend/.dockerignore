@@ -1,0 +1,8 @@
+.venv
+.env
+data
+astro_trainer.db
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache

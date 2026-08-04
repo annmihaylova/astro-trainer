@@ -69,3 +69,18 @@ if EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS <= 0:
         "EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS "
         "должен быть больше нуля",
     )
+
+allowed_origins_raw = getenv(
+    "ALLOWED_ORIGINS",
+    (
+        "http://localhost:5173,"
+        "http://127.0.0.1:5173"
+    ),
+)
+
+
+ALLOWED_ORIGINS = [
+    origin.strip().rstrip("/")
+    for origin in allowed_origins_raw.split(",")
+    if origin.strip()
+]

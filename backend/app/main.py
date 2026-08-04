@@ -16,9 +16,7 @@ from fastapi.security import (
 )
 from sqlalchemy import (
     delete,
-    inspect,
     select,
-    text,
     update,
 )
 from sqlalchemy.exc import IntegrityError
@@ -35,14 +33,7 @@ from app.models import (
     TrainingState,
     User,
 )
-from app.schemas import (
-    AuthResponse,
-    EmailVerificationConfirm,
-    EmailVerificationResponse,
-    UserLogin,
-    UserRead,
-    UserRegistration,
-)
+
 from app.security import (
     create_access_token,
     decode_access_token,
@@ -66,6 +57,7 @@ from app.schemas import (
 )
 
 from app.config import (
+    ALLOWED_ORIGINS,
     EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS,
     FRONTEND_URL,
 )
@@ -93,15 +85,10 @@ app = FastAPI(
 )
 
 
-frontend_origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=frontend_origins,
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -286,67 +273,6 @@ def health_check() -> dict[str, str]:
     return {
         "status": "ok",
     }
-
-
-@app.get("/database-check")
-def database_check(
-    database: DatabaseSession,
-) -> dict[str, str]:
-    database.execute(
-        text("SELECT 1"),
-    )
-
-    return {
-        "database": "ok",
-    }
-
-
-@app.get("/database-tables")
-def database_tables() -> dict[str, list[str]]:
-    inspector = inspect(engine)
-
-    return {
-        "tables": inspector.get_table_names(),
-    }
-
-
-@app.get("/database-columns")
-def database_columns() -> dict[str, list[str]]:
-    inspector = inspect(engine)
-
-    columns = inspector.get_columns(
-        "users",
-    )
-
-    return {
-        "users": [
-            column["name"]
-            for column in columns
-        ],
-    }
-
-
-@app.get("/users")
-def list_users(
-    database: DatabaseSession,
-) -> list[dict[str, int | str | bool]]:
-    users = database.scalars(
-        select(User).order_by(User.id),
-    ).all()
-
-    return [
-        {
-            "id": user.id,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "email": user.email,
-            "login": user.login,
-            "email_verified": (
-                user.email_verified_at is not None
-            ),
-        }
-        for user in users
-    ]
 
 
 @app.post(
