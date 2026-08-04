@@ -58,6 +58,7 @@ from app.schemas import (
     StarsProgressRead,
     StarsProgressWrite,
     StarsStudyMode,
+    StarsProgressResetRequest,
 )
 
 from app.config import (
@@ -160,7 +161,8 @@ CurrentUser = Annotated[
 ]
 
 MESSIER_DECK = "messier"
-STARS_DECKS = {
+STARS_PROGRESS_DECK = "stars"
+STARS_QUEUE_DECKS = {
     "main": "stars-main",
     "all": "stars-all",
 }
@@ -793,7 +795,9 @@ def get_stars_progress(
     current_user: CurrentUser,
     database: DatabaseSession,
 ) -> StarsProgressRead:
-    deck = STARS_DECKS[mode]
+    queue_deck = STARS_QUEUE_DECKS[
+        mode
+    ]
 
     progress_rows = list(
         database.scalars(
@@ -804,7 +808,7 @@ def get_stars_progress(
                 == current_user.id,
 
                 LearningProgress.deck
-                == deck,
+                == STARS_PROGRESS_DECK,
             ),
         ).all(),
     )
@@ -822,7 +826,7 @@ def get_stars_progress(
             == current_user.id,
 
             TrainingState.deck
-            == deck,
+            == queue_deck,
         ),
     )
 
@@ -844,6 +848,7 @@ def get_stars_progress(
         ),
     )
 
+
 @app.put(
     "/progress/stars/{mode}",
     response_model=StarsProgressRead,
@@ -854,25 +859,40 @@ def save_stars_progress(
     current_user: CurrentUser,
     database: DatabaseSession,
 ) -> StarsProgressRead:
-    deck = STARS_DECKS[mode]
+    queue_deck = STARS_QUEUE_DECKS[
+        mode
+    ]
 
-    database.execute(
-        delete(
-            LearningProgress,
-        ).where(
-            LearningProgress.user_id
-            == current_user.id,
+    existing_progress_rows = list(
+        database.scalars(
+            select(
+                LearningProgress,
+            ).where(
+                LearningProgress.user_id
+                == current_user.id,
 
-            LearningProgress.deck
-            == deck,
-        ),
+                LearningProgress.deck
+                == STARS_PROGRESS_DECK,
+            ),
+        ).all(),
     )
 
+    existing_progress_by_item_id = {
+        progress.item_id: progress
+        for progress
+        in existing_progress_rows
+    }
+
     for item in saved_progress.items:
-        database.add(
-            LearningProgress(
+        progress_row = (
+            existing_progress_by_item_id
+            .get(item.item_id)
+        )
+
+        if progress_row is None:
+            progress_row = LearningProgress(
                 user_id=current_user.id,
-                deck=deck,
+                deck=STARS_PROGRESS_DECK,
                 item_id=item.item_id,
                 streak=item.streak,
                 correct_answers=(
@@ -885,8 +905,35 @@ def save_stars_progress(
                 next_prompt_kind=(
                     item.next_prompt_kind
                 ),
-            ),
-        )
+            )
+
+            database.add(
+                progress_row,
+            )
+
+            existing_progress_by_item_id[
+                item.item_id
+            ] = progress_row
+        else:
+            progress_row.streak = (
+                item.streak
+            )
+
+            progress_row.correct_answers = (
+                item.correct_answers
+            )
+
+            progress_row.wrong_answers = (
+                item.wrong_answers
+            )
+
+            progress_row.learned = (
+                item.learned
+            )
+
+            progress_row.next_prompt_kind = (
+                item.next_prompt_kind
+            )
 
     training_state = database.scalar(
         select(
@@ -896,14 +943,14 @@ def save_stars_progress(
             == current_user.id,
 
             TrainingState.deck
-            == deck,
+            == queue_deck,
         ),
     )
 
     if training_state is None:
         training_state = TrainingState(
             user_id=current_user.id,
-            deck=deck,
+            deck=queue_deck,
             queue=list(
                 saved_progress.queue,
             ),
@@ -932,23 +979,50 @@ def save_stars_progress(
             ),
         ) from error
 
+    progress_rows = list(
+        database.scalars(
+            select(
+                LearningProgress,
+            ).where(
+                LearningProgress.user_id
+                == current_user.id,
+
+                LearningProgress.deck
+                == STARS_PROGRESS_DECK,
+            ),
+        ).all(),
+    )
+
+    progress_rows.sort(
+        key=lambda progress:
+            progress.item_id,
+    )
+
     return StarsProgressRead(
-        items=saved_progress.items,
-        queue=saved_progress.queue,
+        items=[
+            learning_progress_to_stars_item(
+                progress,
+            )
+            for progress in progress_rows
+        ],
+        queue=list(
+            saved_progress.queue,
+        ),
         has_saved_progress=True,
     )
 
-@app.delete(
-    "/progress/stars/{mode}",
+
+@app.post(
+    "/progress/stars/{mode}/reset",
     response_model=ProgressResetResponse,
 )
 def reset_stars_progress(
     mode: StarsStudyMode,
+    reset_request:
+        StarsProgressResetRequest,
     current_user: CurrentUser,
     database: DatabaseSession,
 ) -> ProgressResetResponse:
-    deck = STARS_DECKS[mode]
-
     database.execute(
         delete(
             LearningProgress,
@@ -957,7 +1031,11 @@ def reset_stars_progress(
             == current_user.id,
 
             LearningProgress.deck
-            == deck,
+            == STARS_PROGRESS_DECK,
+
+            LearningProgress.item_id.in_(
+                reset_request.item_ids,
+            ),
         ),
     )
 
@@ -968,8 +1046,12 @@ def reset_stars_progress(
             TrainingState.user_id
             == current_user.id,
 
-            TrainingState.deck
-            == deck,
+            TrainingState.deck.in_(
+                list(
+                    STARS_QUEUE_DECKS
+                    .values(),
+                ),
+            ),
         ),
     )
 

@@ -547,3 +547,28 @@ class StarsProgressRead(BaseModel):
     items: list[StarsProgressItem]
     queue: list[str]
     has_saved_progress: bool
+
+class StarsProgressResetRequest(BaseModel):
+    item_ids: list[str] = Field(
+        min_length=1,
+        max_length=STARS_ALL_COUNT,
+    )
+
+    @field_validator("item_ids")
+    @classmethod
+    def validate_item_ids(
+        cls,
+        values: list[str],
+    ) -> list[str]:
+        for value in values:
+            validate_star_item_id(
+                value,
+            )
+
+        if len(values) != len(set(values)):
+            raise ValueError(
+                "Одна звезда не может дважды "
+                "присутствовать в списке сброса",
+            )
+
+        return values
