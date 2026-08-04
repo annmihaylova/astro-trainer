@@ -1,17 +1,13 @@
 import { Link } from 'react-router'
+
 import { nablaSections } from '../../data/nablaSections'
+
 
 function NablaOverviewPage() {
     return (
         <section className="nabla-overview">
             <div className="nabla-intro">
-                <p className="module-kicker">Подразделы</p>
                 <h2>Выбери режим подготовки</h2>
-                <p>
-                    Карточки предназначены для регулярного повторения, теория —
-                    для быстрого восстановления материала, а скайчарты — для
-                    практической тренировки.
-                </p>
             </div>
 
             <div className="nabla-grid">
@@ -38,5 +34,6 @@ function NablaOverviewPage() {
         </section>
     )
 }
+
 
 export default NablaOverviewPage

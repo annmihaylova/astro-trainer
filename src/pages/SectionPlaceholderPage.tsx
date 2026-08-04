@@ -9,7 +9,6 @@ type SectionPlaceholderPageProps = {
 
 function SectionPlaceholderPage({
     title,
-    description,
 }: SectionPlaceholderPageProps) {
     return (
         <div className="simple-page">
@@ -28,7 +27,6 @@ function SectionPlaceholderPage({
 
             <main className="simple-page-content">
                 <h1>{title}</h1>
-                <p>{description}</p>
 
                 <Link
                     className="button button-secondary"

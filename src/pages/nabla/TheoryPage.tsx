@@ -16,21 +16,20 @@ const theoryTopics = [
     },
 ]
 
+
 function TheoryPage() {
     return (
         <section className="nabla-content-page">
             <div className="nabla-intro">
-                <p className="module-kicker">Конспекты</p>
                 <h2>Теоретическая часть</h2>
-                <p>
-                    Краткие материалы, которые можно быстро повторить перед
-                    наблюдательным туром.
-                </p>
             </div>
 
             <div className="theory-list">
                 {theoryTopics.map((topic, index) => (
-                    <article className="theory-topic" key={topic.title}>
+                    <article
+                        className="theory-topic"
+                        key={topic.title}
+                    >
                         <span>0{index + 1}</span>
 
                         <div>
@@ -43,5 +42,6 @@ function TheoryPage() {
         </section>
     )
 }
+
 
 export default TheoryPage
