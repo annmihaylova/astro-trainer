@@ -1,7 +1,3 @@
-import type {
-    ProgressStatus,
-    ProgressStripItem,
-} from '../progress/messierProgress'
 import './DeckProgressStrip.css'
 
 
@@ -12,63 +8,14 @@ type DeckProgressStripProps = {
     learned: number
     inProgress: number
     notStarted: number
-    requiredStreak: number
-    items: ProgressStripItem[]
     totalLabel?: string
 }
 
 
-function getInProgressColor(
-    ratio: number,
-): string {
-    const hue =
-        38 + ratio * 10
-
-    const saturation =
-        68 + ratio * 24
-
-    const lightness =
-        43 + ratio * 14
-
-    return (
-        `hsl(${hue} `
-        + `${saturation}% `
-        + `${lightness}%)`
-    )
-}
-
-
-function getSegmentColor(
-    item: ProgressStripItem,
-): string {
-    if (item.status === 'learned') {
-        return '#5ed49a'
-    }
-
-    if (
-        item.status === 'in-progress'
-    ) {
-        return getInProgressColor(
-            item.ratio,
-        )
-    }
-
-    return 'rgba(255, 255, 255, 0.11)'
-}
-
-
-function getStatusLabel(
-    status: ProgressStatus,
-): string {
-    if (status === 'learned') {
-        return 'Выучено'
-    }
-
-    if (status === 'in-progress') {
-        return 'В процессе'
-    }
-
-    return 'Не начато'
+type ProgressSection = {
+    key: 'learned' | 'in-progress' | 'not-started'
+    label: string
+    count: number
 }
 
 
@@ -79,8 +26,6 @@ function DeckProgressStrip({
     learned,
     inProgress,
     notStarted,
-    requiredStreak,
-    items,
     totalLabel = 'Всего объектов',
 }: DeckProgressStripProps) {
     const learnedPercentage =
@@ -89,6 +34,24 @@ function DeckProgressStrip({
             : Math.round(
                   learned / total * 100,
               )
+
+    const sections: ProgressSection[] = [
+        {
+            key: 'learned',
+            label: 'Выучено',
+            count: learned,
+        },
+        {
+            key: 'in-progress',
+            label: 'В процессе',
+            count: inProgress,
+        },
+        {
+            key: 'not-started',
+            label: 'Не начато',
+            count: notStarted,
+        },
+    ]
 
 
     return (
@@ -116,55 +79,52 @@ function DeckProgressStrip({
             </header>
 
 
-            <div className="deck-progress-bar-viewport">
-                <div
-                    aria-label={
-                        `${title}: выучено ${learned}, `
-                        + `в процессе ${inProgress}, `
-                        + `не начато ${notStarted}`
-                    }
-                    className="deck-progress-bar"
-                    role="img"
-                    style={{
-                        gridTemplateColumns:
-                            `repeat(${items.length}, `
-                            + 'minmax(4px, 1fr))',
-                    }}
-                >
-                    {items.map((item) => {
+            <div
+                aria-label={
+                    `${title}: выучено ${learned} из ${total}, `
+                    + `в процессе ${inProgress} из ${total}, `
+                    + `не начато ${notStarted} из ${total}`
+                }
+                className="deck-progress-bar-shell"
+                role="group"
+            >
+                <div className="deck-progress-bar">
+                    {sections.map((section) => {
+                        if (section.count === 0) {
+                            return null
+                        }
+
                         const tooltip =
-                            item.status
-                            === 'not-started'
-                                ? (
-                                    `${item.label}: `
-                                    + 'не начато'
-                                )
-                                : (
-                                    `${item.label}: `
-                                    + `${getStatusLabel(
-                                        item.status,
-                                    )}, `
-                                    + `серия `
-                                    + `${item.streak}`
-                                    + `/${requiredStreak}`
-                                )
+                            `${section.label}: `
+                            + `${section.count} из ${total}`
 
                         return (
                             <span
                                 aria-label={tooltip}
                                 className={
-                                    'deck-progress-segment '
-                                    + `deck-progress-segment--${item.status}`
+                                    'deck-progress-section '
+                                    + `deck-progress-section--${section.key}`
                                 }
-                                key={item.id}
+                                key={section.key}
+                                role="img"
                                 style={{
-                                    backgroundColor:
-                                        getSegmentColor(
-                                            item,
-                                        ),
+                                    flexGrow:
+                                        section.count,
                                 }}
+                                tabIndex={0}
                                 title={tooltip}
-                            />
+                            >
+                                <span
+                                    aria-hidden="true"
+                                    className="deck-progress-tooltip"
+                                >
+                                    {section.label}:{' '}
+                                    <strong>
+                                        {section.count}
+                                    </strong>{' '}
+                                    из {total}
+                                </span>
+                            </span>
                         )
                     })}
                 </div>

@@ -4,12 +4,6 @@ import type {
 import { messierObjects } from '../data/messierObjects'
 
 
-export type ProgressStatus =
-    | 'learned'
-    | 'in-progress'
-    | 'not-started'
-
-
 type StoredObjectProgress = {
     streak: number
     correctAnswers: number
@@ -24,23 +18,11 @@ type StoredProgressMap = Record<
 >
 
 
-export type ProgressStripItem = {
-    id: string
-    label: string
-    order: number
-    status: ProgressStatus
-    streak: number
-    ratio: number
-}
-
-
 export type MessierProgressOverview = {
     total: number
     learned: number
     inProgress: number
     notStarted: number
-    requiredStreak: number
-    items: ProgressStripItem[]
 }
 
 
@@ -64,149 +46,51 @@ function getProgressKey(
 }
 
 
-function loadStoredProgress(
-    userId: number | null,
-): StoredProgressMap {
-    if (userId === null) {
-        return {}
-    }
-
-    try {
-        const storedValue =
-            localStorage.getItem(
-                getMessierProgressStorageKey(
-                    userId,
-                ),
-            )
-
-        if (!storedValue) {
-            return {}
-        }
-
-        return JSON.parse(
-            storedValue,
-        ) as StoredProgressMap
-    } catch {
-        return {}
-    }
-}
-
-
-function clamp(
-    value: number,
-    minimum: number,
-    maximum: number,
-): number {
-    return Math.min(
-        maximum,
-        Math.max(minimum, value),
-    )
-}
-
-
 export function getMessierProgressOverview(
-    userId: number | null,
+    items: readonly MessierProgressItem[],
 ): MessierProgressOverview {
-    const storedProgress =
-        loadStoredProgress(userId)
+    const progressByItemId = new Map(
+        items.map((item) => [
+            item.item_id,
+            item,
+        ]),
+    )
 
-    const items: ProgressStripItem[] =
-        messierObjects.map((object) => {
-            const progress =
-                storedProgress[
-                    getProgressKey(
-                        object.number,
-                    )
-                ]
+    let learned = 0
+    let inProgress = 0
 
-            const streak =
-                progress?.streak ?? 0
-
-            const hasStarted = Boolean(
-                progress
-                && (
-                    progress.correctAnswers > 0
-                    || progress.wrongAnswers > 0
-                    || progress.streak > 0
-                    || progress.learned
-                ),
-            )
-
-            let status: ProgressStatus
-
-            if (
-                progress?.learned
-                || streak >= REQUIRED_STREAK
-            ) {
-                status = 'learned'
-            } else if (hasStarted) {
-                status = 'in-progress'
-            } else {
-                status = 'not-started'
-            }
-
-            return {
-                id: getProgressKey(
+    for (const object of messierObjects) {
+        const progress =
+            progressByItemId.get(
+                getProgressKey(
                     object.number,
                 ),
-                label: object.title,
-                order: object.number,
-                status,
-                streak,
-                ratio: clamp(
-                    streak / REQUIRED_STREAK,
-                    0,
-                    1,
-                ),
-            }
-        })
+            )
 
-
-    const statusOrder:
-        Record<ProgressStatus, number> = {
-        learned: 0,
-        'in-progress': 1,
-        'not-started': 2,
-    }
-
-
-    items.sort((firstItem, secondItem) => {
-        const statusDifference =
-            statusOrder[firstItem.status]
-            - statusOrder[secondItem.status]
-
-        if (statusDifference !== 0) {
-            return statusDifference
+        if (
+            progress?.learned
+            || (
+                progress?.streak
+                ?? 0
+            ) >= REQUIRED_STREAK
+        ) {
+            learned += 1
+            continue
         }
 
         if (
-            firstItem.status
-            === 'in-progress'
-        ) {
-            return (
-                secondItem.ratio
-                - firstItem.ratio
+            progress
+            && (
+                progress.correct_answers > 0
+                || progress.wrong_answers > 0
+                || progress.streak > 0
             )
+        ) {
+            inProgress += 1
         }
+    }
 
-        return (
-            firstItem.order
-            - secondItem.order
-        )
-    })
-
-
-    const learned = items.filter(
-        (item) =>
-            item.status === 'learned',
-    ).length
-
-    const inProgress = items.filter(
-        (item) =>
-            item.status === 'in-progress',
-    ).length
-
-    const total = items.length
+    const total = messierObjects.length
 
     return {
         total,
@@ -216,9 +100,6 @@ export function getMessierProgressOverview(
             total
             - learned
             - inProgress,
-        requiredStreak:
-            REQUIRED_STREAK,
-        items,
     }
 }
 

@@ -259,3 +259,39 @@
 .profile-progress-stars-grid > * {
     min-width: 0;
 }
+
+
+.profile-progress-state {
+    display: grid;
+    min-height: 110px;
+    padding: 24px;
+    place-items: center;
+    color: rgba(247, 247, 251, 0.54);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.025);
+    font-size: 13px;
+    text-align: center;
+}
+
+.profile-progress-state p {
+    margin: 0;
+}
+
+.profile-progress-state--error {
+    gap: 14px;
+    color: #ffb1b8;
+}
+
+.profile-progress-state button {
+    min-height: 38px;
+    padding: 0 14px;
+    color: #d7d0ff;
+    border: 1px solid rgba(169, 156, 255, 0.32);
+    border-radius: 10px;
+    background: rgba(169, 156, 255, 0.09);
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+}

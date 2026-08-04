@@ -1,11 +1,27 @@
 import {
+    useEffect,
     useMemo,
     useState,
 } from 'react'
 import { Link } from 'react-router'
-import { ApiError } from '../api/client'
 
+import { ApiError } from '../api/client'
+import {
+    getMessierProgress,
+} from '../api/messierProgress'
+import type {
+    MessierProgressItem,
+} from '../api/messierProgress'
+import {
+    getStarsProgress,
+} from '../api/starsProgress'
+import type {
+    StarsProgressItem,
+} from '../api/starsProgress'
 import { useAuth } from '../auth/AuthContext'
+import {
+    getAccessToken,
+} from '../auth/tokenStorage'
 import DeckProgressStrip from '../components/DeckProgressStrip'
 import {
     getMessierProgressOverview,
@@ -16,6 +32,20 @@ import {
 import './ProfilePage.css'
 
 
+function getProgressErrorMessage(
+    error: unknown,
+): string {
+    if (error instanceof ApiError) {
+        return error.message
+    }
+
+    return (
+        'Не удалось загрузить прогресс '
+        + 'с сервера.'
+    )
+}
+
+
 function ProfilePage() {
     const {
         user,
@@ -23,21 +53,52 @@ function ProfilePage() {
     } = useAuth()
 
 
+    const [
+        messierItems,
+        setMessierItems,
+    ] = useState<
+        MessierProgressItem[]
+    >([])
+
+    const [
+        starsItems,
+        setStarsItems,
+    ] = useState<
+        StarsProgressItem[]
+    >([])
+
+    const [
+        isProgressLoading,
+        setIsProgressLoading,
+    ] = useState(true)
+
+    const [
+        progressError,
+        setProgressError,
+    ] = useState('')
+
+    const [
+        progressRequestVersion,
+        setProgressRequestVersion,
+    ] = useState(0)
+
+
     const messierProgress = useMemo(
         () =>
             getMessierProgressOverview(
-                user?.id ?? null,
+                messierItems,
             ),
-        [user?.id],
+        [messierItems],
     )
 
     const starsProgress = useMemo(
         () =>
             getStarsProgressOverviews(
-                user?.id ?? null,
+                starsItems,
             ),
-        [user?.id],
+        [starsItems],
     )
+
 
     const [
         isSendingVerification,
@@ -53,6 +114,89 @@ function ProfilePage() {
         verificationError,
         setVerificationError,
     ] = useState(false)
+
+
+    useEffect(() => {
+        let isActive = true
+
+        async function loadProgress() {
+            if (!user) {
+                return
+            }
+
+            const token =
+                getAccessToken()
+
+            if (!token) {
+                if (isActive) {
+                    setProgressError(
+                        'Необходимо войти '
+                        + 'в аккаунт.',
+                    )
+                    setIsProgressLoading(
+                        false,
+                    )
+                }
+
+                return
+            }
+
+            setIsProgressLoading(true)
+            setProgressError('')
+
+            try {
+                const [
+                    messierResponse,
+                    starsResponse,
+                ] = await Promise.all([
+                    getMessierProgress(
+                        token,
+                    ),
+                    getStarsProgress(
+                        token,
+                        'all',
+                    ),
+                ])
+
+                if (!isActive) {
+                    return
+                }
+
+                setMessierItems(
+                    messierResponse.items,
+                )
+
+                setStarsItems(
+                    starsResponse.items,
+                )
+            } catch (error) {
+                if (!isActive) {
+                    return
+                }
+
+                setProgressError(
+                    getProgressErrorMessage(
+                        error,
+                    ),
+                )
+            } finally {
+                if (isActive) {
+                    setIsProgressLoading(
+                        false,
+                    )
+                }
+            }
+        }
+
+        void loadProgress()
+
+        return () => {
+            isActive = false
+        }
+    }, [
+        user,
+        progressRequestVersion,
+    ])
 
 
     if (!user) {
@@ -73,6 +217,7 @@ function ProfilePage() {
                 user.created_at,
             ),
         )
+
 
     async function handleSendVerification() {
         setIsSendingVerification(true)
@@ -97,13 +242,15 @@ function ProfilePage() {
                 )
             } else {
                 setVerificationMessage(
-                    'Не удалось создать ссылку подтверждения.',
+                    'Не удалось создать '
+                    + 'ссылку подтверждения.',
                 )
             }
         } finally {
             setIsSendingVerification(false)
         }
     }
+
 
     return (
         <main className="profile-page">
@@ -225,103 +372,131 @@ function ProfilePage() {
                         <h2>Прогресс</h2>
 
                         <p>
-                            Каждый маленький сегмент
-                            соответствует одному объекту.
-                            Наведи курсор, чтобы увидеть
-                            название и текущую серию.
+                            Полоса показывает долю
+                            выученных объектов, объектов
+                            в процессе и ещё не начатых.
+                            Наведи курсор на цветную часть,
+                            чтобы увидеть точное количество.
                         </p>
                     </div>
 
 
-                    <div className="profile-progress-list">
-                        <DeckProgressStrip
-                            description={
-                                'Общий streak одного объекта '
-                                + 'с чередованием двух '
-                                + 'направлений.'
-                            }
-                            inProgress={
-                                messierProgress
-                                    .inProgress
-                            }
-                            items={
-                                messierProgress.items
-                            }
-                            learned={
-                                messierProgress.learned
-                            }
-                            notStarted={
-                                messierProgress
-                                    .notStarted
-                            }
-                            requiredStreak={
-                                messierProgress
-                                    .requiredStreak
-                            }
-                            title="Объекты Мессье"
-                            total={
-                                messierProgress.total
-                            }
-                        />
-
-                        <div className="profile-progress-stars-grid">
-                            <DeckProgressStrip
-                                description={
-                                    'Самые часто встречающиеся '
-                                    + 'звёзды. Прогресс общий '
-                                    + 'с полной колодой.'
-                                }
-                                inProgress={
-                                    starsProgress.main.inProgress
-                                }
-                                items={
-                                    starsProgress.main.items
-                                }
-                                learned={
-                                    starsProgress.main.learned
-                                }
-                                notStarted={
-                                    starsProgress.main.notStarted
-                                }
-                                requiredStreak={
-                                    starsProgress.main.requiredStreak
-                                }
-                                title="Основные звёзды"
-                                total={
-                                    starsProgress.main.total
-                                }
-                                totalLabel="Всего звёзд"
-                            />
-
-                            <DeckProgressStrip
-                                description={
-                                    'Все звёзды из выборки. '
-                                    + 'Выученные основные уже '
-                                    + 'учитываются здесь.'
-                                }
-                                inProgress={
-                                    starsProgress.all.inProgress
-                                }
-                                items={
-                                    starsProgress.all.items
-                                }
-                                learned={
-                                    starsProgress.all.learned
-                                }
-                                notStarted={
-                                    starsProgress.all.notStarted
-                                }
-                                requiredStreak={
-                                    starsProgress.all.requiredStreak
-                                }
-                                title="Вся колода звёзд"
-                                total={
-                                    starsProgress.all.total
-                                }
-                                totalLabel="Всего звёзд"
-                            />
+                    {isProgressLoading ? (
+                        <div className="profile-progress-state">
+                            Загружаем прогресс
+                            с сервера…
                         </div>
-                    </div>
+                    ) : progressError ? (
+                        <div
+                            className="
+                                profile-progress-state
+                                profile-progress-state--error
+                            "
+                        >
+                            <p>{progressError}</p>
+
+                            <button
+                                onClick={() => {
+                                    setProgressRequestVersion(
+                                        (version) =>
+                                            version + 1,
+                                    )
+                                }}
+                                type="button"
+                            >
+                                Попробовать снова
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="profile-progress-list">
+                            <DeckProgressStrip
+                                description={
+                                    'Общий streak одного объекта '
+                                    + 'с чередованием двух '
+                                    + 'направлений.'
+                                }
+                                inProgress={
+                                    messierProgress
+                                        .inProgress
+                                }
+                                learned={
+                                    messierProgress
+                                        .learned
+                                }
+                                notStarted={
+                                    messierProgress
+                                        .notStarted
+                                }
+                                title="Объекты Мессье"
+                                total={
+                                    messierProgress
+                                        .total
+                                }
+                            />
+
+                            <div className="profile-progress-stars-grid">
+                                <DeckProgressStrip
+                                    description={
+                                        'Самые часто встречающиеся '
+                                        + 'звёзды. Прогресс общий '
+                                        + 'с полной колодой.'
+                                    }
+                                    inProgress={
+                                        starsProgress
+                                            .main
+                                            .inProgress
+                                    }
+                                    learned={
+                                        starsProgress
+                                            .main
+                                            .learned
+                                    }
+                                    notStarted={
+                                        starsProgress
+                                            .main
+                                            .notStarted
+                                    }
+                                    title="Основные звёзды"
+                                    total={
+                                        starsProgress
+                                            .main
+                                            .total
+                                    }
+                                    totalLabel="Всего звёзд"
+                                />
+
+                                <DeckProgressStrip
+                                    description={
+                                        'Все звёзды из выборки. '
+                                        + 'Выученные основные уже '
+                                        + 'учитываются здесь.'
+                                    }
+                                    inProgress={
+                                        starsProgress
+                                            .all
+                                            .inProgress
+                                    }
+                                    learned={
+                                        starsProgress
+                                            .all
+                                            .learned
+                                    }
+                                    notStarted={
+                                        starsProgress
+                                            .all
+                                            .notStarted
+                                    }
+                                    title="Вся колода звёзд"
+                                    total={
+                                        starsProgress
+                                            .all
+                                            .total
+                                    }
+                                    totalLabel="Всего звёзд"
+                                />
+                            </div>
+                        </div>
+                    )}
                 </section>
             </section>
         </main>
