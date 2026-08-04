@@ -385,3 +385,165 @@ class MessierProgressRead(BaseModel):
 
 class ProgressResetResponse(BaseModel):
     message: str
+
+STARS_REQUIRED_STREAK = 16
+STARS_ALL_COUNT = 229
+
+
+StarsStudyMode = Literal[
+    "main",
+    "all",
+]
+
+
+def validate_star_item_id(
+    value: str,
+) -> str:
+    if not value.startswith("star-"):
+        raise ValueError(
+            "Идентификатор звезды должен "
+            "начинаться с star-",
+        )
+
+    number_text = value.removeprefix(
+        "star-",
+    )
+
+    if not number_text.isdigit():
+        raise ValueError(
+            "После star- должен находиться "
+            "числовой идентификатор",
+        )
+
+    return value
+
+
+class StarsProgressItem(BaseModel):
+    item_id: str = Field(
+        min_length=6,
+        max_length=100,
+    )
+
+    streak: int = Field(
+        ge=0,
+        le=STARS_REQUIRED_STREAK,
+    )
+
+    correct_answers: int = Field(
+        ge=0,
+    )
+
+    wrong_answers: int = Field(
+        ge=0,
+    )
+
+    learned: bool
+
+    next_prompt_kind: Literal[
+        "name",
+        "position",
+    ]
+
+    @field_validator("item_id")
+    @classmethod
+    def validate_item_id(
+        cls,
+        value: str,
+    ) -> str:
+        return validate_star_item_id(
+            value,
+        )
+
+    @model_validator(mode="after")
+    def validate_learning_state(
+        self,
+    ) -> Self:
+        expected_learned = (
+            self.streak
+            >= STARS_REQUIRED_STREAK
+        )
+
+        if self.learned != expected_learned:
+            raise ValueError(
+                "learned должен быть true только "
+                "при streak, равном 16",
+            )
+
+        if (
+            self.correct_answers
+            < self.streak
+        ):
+            raise ValueError(
+                "Количество правильных ответов "
+                "не может быть меньше streak",
+            )
+
+        return self
+
+
+class StarsProgressWrite(BaseModel):
+    items: list[
+        StarsProgressItem
+    ] = Field(
+        default_factory=list,
+        max_length=STARS_ALL_COUNT,
+    )
+
+    queue: list[str] = Field(
+        default_factory=list,
+        max_length=STARS_ALL_COUNT,
+    )
+
+    @model_validator(mode="after")
+    def validate_progress(
+        self,
+    ) -> Self:
+        progress_item_ids = [
+            item.item_id
+            for item in self.items
+        ]
+
+        if (
+            len(progress_item_ids)
+            != len(set(progress_item_ids))
+        ):
+            raise ValueError(
+                "Одна звезда не может дважды "
+                "присутствовать в прогрессе",
+            )
+
+        for item_id in self.queue:
+            validate_star_item_id(
+                item_id,
+            )
+
+        if (
+            len(self.queue)
+            != len(set(self.queue))
+        ):
+            raise ValueError(
+                "Одна звезда не может дважды "
+                "присутствовать в очереди",
+            )
+
+        learned_item_ids = {
+            item.item_id
+            for item in self.items
+            if item.learned
+        }
+
+        if learned_item_ids.intersection(
+            self.queue,
+        ):
+            raise ValueError(
+                "Выученные звёзды не должны "
+                "находиться в очереди",
+            )
+
+        return self
+
+
+class StarsProgressRead(BaseModel):
+    items: list[StarsProgressItem]
+    queue: list[str]
+    has_saved_progress: bool

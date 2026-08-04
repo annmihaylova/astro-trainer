@@ -54,6 +54,10 @@ from app.schemas import (
     UserLogin,
     UserRead,
     UserRegistration,
+    StarsProgressItem,
+    StarsProgressRead,
+    StarsProgressWrite,
+    StarsStudyMode,
 )
 
 from app.config import (
@@ -156,6 +160,10 @@ CurrentUser = Annotated[
 ]
 
 MESSIER_DECK = "messier"
+STARS_DECKS = {
+    "main": "stars-main",
+    "all": "stars-all",
+}
 
 def user_to_read(
     user: User,
@@ -190,6 +198,38 @@ def learning_progress_to_messier_item(
         )
 
     return MessierProgressItem(
+        item_id=progress.item_id,
+        streak=progress.streak,
+        correct_answers=(
+            progress.correct_answers
+        ),
+        wrong_answers=(
+            progress.wrong_answers
+        ),
+        learned=progress.learned,
+        next_prompt_kind=(
+            progress.next_prompt_kind
+        ),
+    )
+
+def learning_progress_to_stars_item(
+    progress: LearningProgress,
+) -> StarsProgressItem:
+    if progress.next_prompt_kind not in {
+        "name",
+        "position",
+    }:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_500_INTERNAL_SERVER_ERROR
+            ),
+            detail=(
+                "В базе сохранён некорректный "
+                "тип карточки звезды"
+            ),
+        )
+
+    return StarsProgressItem(
         item_id=progress.item_id,
         streak=progress.streak,
         correct_answers=(
@@ -741,5 +781,208 @@ def reset_messier_progress(
         message=(
             "Прогресс по объектам Мессье "
             "сброшен"
+        ),
+    )
+
+@app.get(
+    "/progress/stars/{mode}",
+    response_model=StarsProgressRead,
+)
+def get_stars_progress(
+    mode: StarsStudyMode,
+    current_user: CurrentUser,
+    database: DatabaseSession,
+) -> StarsProgressRead:
+    deck = STARS_DECKS[mode]
+
+    progress_rows = list(
+        database.scalars(
+            select(
+                LearningProgress,
+            ).where(
+                LearningProgress.user_id
+                == current_user.id,
+
+                LearningProgress.deck
+                == deck,
+            ),
+        ).all(),
+    )
+
+    progress_rows.sort(
+        key=lambda progress:
+            progress.item_id,
+    )
+
+    training_state = database.scalar(
+        select(
+            TrainingState,
+        ).where(
+            TrainingState.user_id
+            == current_user.id,
+
+            TrainingState.deck
+            == deck,
+        ),
+    )
+
+    return StarsProgressRead(
+        items=[
+            learning_progress_to_stars_item(
+                progress,
+            )
+            for progress in progress_rows
+        ],
+        queue=(
+            list(training_state.queue)
+            if training_state is not None
+            else []
+        ),
+        has_saved_progress=(
+            bool(progress_rows)
+            or training_state is not None
+        ),
+    )
+
+@app.put(
+    "/progress/stars/{mode}",
+    response_model=StarsProgressRead,
+)
+def save_stars_progress(
+    mode: StarsStudyMode,
+    saved_progress: StarsProgressWrite,
+    current_user: CurrentUser,
+    database: DatabaseSession,
+) -> StarsProgressRead:
+    deck = STARS_DECKS[mode]
+
+    database.execute(
+        delete(
+            LearningProgress,
+        ).where(
+            LearningProgress.user_id
+            == current_user.id,
+
+            LearningProgress.deck
+            == deck,
+        ),
+    )
+
+    for item in saved_progress.items:
+        database.add(
+            LearningProgress(
+                user_id=current_user.id,
+                deck=deck,
+                item_id=item.item_id,
+                streak=item.streak,
+                correct_answers=(
+                    item.correct_answers
+                ),
+                wrong_answers=(
+                    item.wrong_answers
+                ),
+                learned=item.learned,
+                next_prompt_kind=(
+                    item.next_prompt_kind
+                ),
+            ),
+        )
+
+    training_state = database.scalar(
+        select(
+            TrainingState,
+        ).where(
+            TrainingState.user_id
+            == current_user.id,
+
+            TrainingState.deck
+            == deck,
+        ),
+    )
+
+    if training_state is None:
+        training_state = TrainingState(
+            user_id=current_user.id,
+            deck=deck,
+            queue=list(
+                saved_progress.queue,
+            ),
+        )
+
+        database.add(
+            training_state,
+        )
+    else:
+        training_state.queue = list(
+            saved_progress.queue,
+        )
+
+    try:
+        database.commit()
+    except IntegrityError as error:
+        database.rollback()
+
+        raise HTTPException(
+            status_code=(
+                status.HTTP_409_CONFLICT
+            ),
+            detail=(
+                "Не удалось сохранить прогресс "
+                "звёзд из-за конфликта данных"
+            ),
+        ) from error
+
+    return StarsProgressRead(
+        items=saved_progress.items,
+        queue=saved_progress.queue,
+        has_saved_progress=True,
+    )
+
+@app.delete(
+    "/progress/stars/{mode}",
+    response_model=ProgressResetResponse,
+)
+def reset_stars_progress(
+    mode: StarsStudyMode,
+    current_user: CurrentUser,
+    database: DatabaseSession,
+) -> ProgressResetResponse:
+    deck = STARS_DECKS[mode]
+
+    database.execute(
+        delete(
+            LearningProgress,
+        ).where(
+            LearningProgress.user_id
+            == current_user.id,
+
+            LearningProgress.deck
+            == deck,
+        ),
+    )
+
+    database.execute(
+        delete(
+            TrainingState,
+        ).where(
+            TrainingState.user_id
+            == current_user.id,
+
+            TrainingState.deck
+            == deck,
+        ),
+    )
+
+    database.commit()
+
+    mode_label = (
+        "основным звёздам"
+        if mode == "main"
+        else "всей колоде звёзд"
+    )
+
+    return ProgressResetResponse(
+        message=(
+            f"Прогресс по {mode_label} сброшен"
         ),
     )
