@@ -249,3 +249,13 @@
 .profile-email-message--error {
     color: #ffaaaa;
 }
+
+.profile-progress-stars-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+}
+
+.profile-progress-stars-grid > * {
+    min-width: 0;
+}

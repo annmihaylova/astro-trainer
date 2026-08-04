@@ -14,6 +14,7 @@ type DeckProgressStripProps = {
     notStarted: number
     requiredStreak: number
     items: ProgressStripItem[]
+    totalLabel?: string
 }
 
 
@@ -80,6 +81,7 @@ function DeckProgressStrip({
     notStarted,
     requiredStreak,
     items,
+    totalLabel = 'Всего объектов',
 }: DeckProgressStripProps) {
     const learnedPercentage =
         total === 0
@@ -216,7 +218,7 @@ function DeckProgressStrip({
 
 
                 <div className="deck-progress-total">
-                    Всего объектов: {total}
+                    {totalLabel}: {total}
                 </div>
             </div>
         </article>

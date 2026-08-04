@@ -10,6 +10,9 @@ import DeckProgressStrip from '../components/DeckProgressStrip'
 import {
     getMessierProgressOverview,
 } from '../progress/messierProgress'
+import {
+    getStarsProgressOverviews,
+} from '../progress/starsProgress'
 import './ProfilePage.css'
 
 
@@ -23,6 +26,14 @@ function ProfilePage() {
     const messierProgress = useMemo(
         () =>
             getMessierProgressOverview(
+                user?.id ?? null,
+            ),
+        [user?.id],
+    )
+
+    const starsProgress = useMemo(
+        () =>
+            getStarsProgressOverviews(
                 user?.id ?? null,
             ),
         [user?.id],
@@ -252,6 +263,64 @@ function ProfilePage() {
                                 messierProgress.total
                             }
                         />
+
+                        <div className="profile-progress-stars-grid">
+                            <DeckProgressStrip
+                                description={
+                                    'Самые часто встречающиеся '
+                                    + 'звёзды. Прогресс общий '
+                                    + 'с полной колодой.'
+                                }
+                                inProgress={
+                                    starsProgress.main.inProgress
+                                }
+                                items={
+                                    starsProgress.main.items
+                                }
+                                learned={
+                                    starsProgress.main.learned
+                                }
+                                notStarted={
+                                    starsProgress.main.notStarted
+                                }
+                                requiredStreak={
+                                    starsProgress.main.requiredStreak
+                                }
+                                title="Основные звёзды"
+                                total={
+                                    starsProgress.main.total
+                                }
+                                totalLabel="Всего звёзд"
+                            />
+
+                            <DeckProgressStrip
+                                description={
+                                    'Все звёзды из выборки. '
+                                    + 'Выученные основные уже '
+                                    + 'учитываются здесь.'
+                                }
+                                inProgress={
+                                    starsProgress.all.inProgress
+                                }
+                                items={
+                                    starsProgress.all.items
+                                }
+                                learned={
+                                    starsProgress.all.learned
+                                }
+                                notStarted={
+                                    starsProgress.all.notStarted
+                                }
+                                requiredStreak={
+                                    starsProgress.all.requiredStreak
+                                }
+                                title="Вся колода звёзд"
+                                total={
+                                    starsProgress.all.total
+                                }
+                                totalLabel="Всего звёзд"
+                            />
+                        </div>
                     </div>
                 </section>
             </section>
