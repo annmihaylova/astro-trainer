@@ -107,7 +107,7 @@ function LoginPage() {
                                     event.target.value,
                                 )
                             }
-                            placeholder="astro#2026"
+                            placeholder="login"
                             required
                             type="text"
                             value={loginValue}
