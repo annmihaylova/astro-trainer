@@ -113,7 +113,7 @@ function RegisterPage() {
                                         event.target.value,
                                     )
                                 }
-                                placeholder="Анна"
+                                placeholder="Имя"
                                 required
                                 type="text"
                                 value={firstName}
@@ -132,7 +132,7 @@ function RegisterPage() {
                                         event.target.value,
                                     )
                                 }
-                                placeholder="Михайлова"
+                                placeholder="Фамилия"
                                 required
                                 type="text"
                                 value={lastName}
@@ -152,7 +152,7 @@ function RegisterPage() {
                                     event.target.value,
                                 )
                             }
-                            placeholder="anna@example.com"
+                            placeholder="email@example.com"
                             required
                             type="email"
                             value={email}
@@ -172,7 +172,7 @@ function RegisterPage() {
                                     event.target.value,
                                 )
                             }
-                            placeholder="astro#2026"
+                            placeholder="login"
                             required
                             type="text"
                             value={login}
