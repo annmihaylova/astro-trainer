@@ -23,6 +23,9 @@ export type MessierProgressOverview = {
     learned: number
     inProgress: number
     notStarted: number
+    requiredStreak: number
+    inProgressStreakCounts:
+        number[]
 }
 
 
@@ -56,6 +59,15 @@ export function getMessierProgressOverview(
         ]),
     )
 
+    const inProgressStreakCounts =
+        Array.from(
+            {
+                length:
+                    REQUIRED_STREAK - 1,
+            },
+            () => 0,
+        )
+
     let learned = 0
     let inProgress = 0
 
@@ -87,6 +99,24 @@ export function getMessierProgressOverview(
             )
         ) {
             inProgress += 1
+
+            /*
+             * После ошибки streak может быть 0,
+             * но объект уже начат. В полосе
+             * показываем его как самый светлый
+             * уровень 1/16.
+             */
+            const visualStreak = Math.min(
+                REQUIRED_STREAK - 1,
+                Math.max(
+                    1,
+                    progress.streak,
+                ),
+            )
+
+            inProgressStreakCounts[
+                visualStreak - 1
+            ] += 1
         }
     }
 
@@ -96,10 +126,16 @@ export function getMessierProgressOverview(
         total,
         learned,
         inProgress,
+
         notStarted:
             total
             - learned
             - inProgress,
+
+        requiredStreak:
+            REQUIRED_STREAK,
+
+        inProgressStreakCounts,
     }
 }
 

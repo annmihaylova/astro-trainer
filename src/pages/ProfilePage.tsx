@@ -133,6 +133,7 @@ function ProfilePage() {
                         'Необходимо войти '
                         + 'в аккаунт.',
                     )
+
                     setIsProgressLoading(
                         false,
                     )
@@ -152,6 +153,7 @@ function ProfilePage() {
                     getMessierProgress(
                         token,
                     ),
+
                     getStarsProgress(
                         token,
                         'all',
@@ -419,6 +421,10 @@ function ProfilePage() {
                                     messierProgress
                                         .inProgress
                                 }
+                                inProgressStreakCounts={
+                                    messierProgress
+                                        .inProgressStreakCounts
+                                }
                                 learned={
                                     messierProgress
                                         .learned
@@ -426,6 +432,10 @@ function ProfilePage() {
                                 notStarted={
                                     messierProgress
                                         .notStarted
+                                }
+                                requiredStreak={
+                                    messierProgress
+                                        .requiredStreak
                                 }
                                 title="Объекты Мессье"
                                 total={
@@ -446,6 +456,11 @@ function ProfilePage() {
                                             .main
                                             .inProgress
                                     }
+                                    inProgressStreakCounts={
+                                        starsProgress
+                                            .main
+                                            .inProgressStreakCounts
+                                    }
                                     learned={
                                         starsProgress
                                             .main
@@ -455,6 +470,11 @@ function ProfilePage() {
                                         starsProgress
                                             .main
                                             .notStarted
+                                    }
+                                    requiredStreak={
+                                        starsProgress
+                                            .main
+                                            .requiredStreak
                                     }
                                     title="Основные звёзды"
                                     total={
@@ -476,6 +496,11 @@ function ProfilePage() {
                                             .all
                                             .inProgress
                                     }
+                                    inProgressStreakCounts={
+                                        starsProgress
+                                            .all
+                                            .inProgressStreakCounts
+                                    }
                                     learned={
                                         starsProgress
                                             .all
@@ -485,6 +510,11 @@ function ProfilePage() {
                                         starsProgress
                                             .all
                                             .notStarted
+                                    }
+                                    requiredStreak={
+                                        starsProgress
+                                            .all
+                                            .requiredStreak
                                     }
                                     title="Вся колода звёзд"
                                     total={

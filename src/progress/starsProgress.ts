@@ -13,6 +13,9 @@ export type StarsProgressOverview = {
     learned: number
     inProgress: number
     notStarted: number
+    requiredStreak: number
+    inProgressStreakCounts:
+        number[]
 }
 
 
@@ -33,6 +36,15 @@ function buildStarsOverview(
             StarsProgressItem
         >,
 ): StarsProgressOverview {
+    const inProgressStreakCounts =
+        Array.from(
+            {
+                length:
+                    REQUIRED_STREAK - 1,
+            },
+            () => 0,
+        )
+
     let learned = 0
     let inProgress = 0
 
@@ -62,6 +74,23 @@ function buildStarsOverview(
             )
         ) {
             inProgress += 1
+
+            /*
+             * Начатый объект со streak 0
+             * отображается самым светлым
+             * оттенком уровня 1/16.
+             */
+            const visualStreak = Math.min(
+                REQUIRED_STREAK - 1,
+                Math.max(
+                    1,
+                    progress.streak,
+                ),
+            )
+
+            inProgressStreakCounts[
+                visualStreak - 1
+            ] += 1
         }
     }
 
@@ -71,10 +100,16 @@ function buildStarsOverview(
         total,
         learned,
         inProgress,
+
         notStarted:
             total
             - learned
             - inProgress,
+
+        requiredStreak:
+            REQUIRED_STREAK,
+
+        inProgressStreakCounts,
     }
 }
 
