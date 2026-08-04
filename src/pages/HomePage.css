@@ -1,0 +1,29 @@
+/*
+ * Локальные уточнения главной страницы.
+ * Файл подключается после App.css и переопределяет
+ * только компоновку карточек после удаления номера и подзаголовка.
+ */
+.cards-grid .training-card {
+    display: flex;
+    min-height: 380px;
+    flex-direction: column;
+}
+
+.cards-grid .training-card h3 {
+    margin-top: 2px;
+}
+
+.cards-grid .card-description {
+    margin-top: 20px;
+}
+
+.cards-grid .card-footer {
+    position: static;
+    margin-top: auto;
+}
+
+@media (max-width: 680px) {
+    .cards-grid .training-card {
+        min-height: 405px;
+    }
+}

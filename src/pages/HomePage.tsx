@@ -1,10 +1,11 @@
 import { Link } from 'react-router'
 
+import './HomePage.css'
+
+
 const trainingSections = [
     {
-        number: '01',
         title: 'Теоретический тур',
-        subtitle: 'Задачи и повторение',
         description:
             'Сложная теория, решения старых квалов и материалы для повторения.',
         path: '/theory',
@@ -25,9 +26,7 @@ const trainingSections = [
         theme: 'green',
     },
     {
-        number: '02',
         title: 'Практический тур',
-        subtitle: 'Python и анализ данных',
         description:
             'Разбор практических заданий и краткий справочник по библиотекам, которые постоянно используются на турах.',
         path: '/practice',
@@ -44,9 +43,7 @@ const trainingSections = [
         theme: 'orange',
     },
     {
-        number: '03',
         title: 'Наблюдательный тур',
-        subtitle: 'Небо и ориентирование',
         description:
             'Ускоренная подготовка к наблюдательному туру: объекты, звёзды, координаты и работа с картой неба.',
         path: '/nabla',
@@ -71,9 +68,7 @@ const trainingSections = [
         theme: 'violet',
     },
     {
-        number: '04',
         title: 'Блиц',
-        subtitle: 'Формулы и быстрые вопросы',
         description:
             'Карточки для быстрого повторения формул и прокачки мат аппарата перед отбором.',
         path: '/blitz',
@@ -91,22 +86,29 @@ const trainingSections = [
     },
 ] as const
 
+
 function HomePage() {
     return (
         <div className="app-shell" id="top">
             <header className="site-header">
                 <a className="brand" href="#top">
-                    <span className="brand-mark" aria-hidden="true">
+                    <span
+                        aria-hidden="true"
+                        className="brand-mark"
+                    >
                         ✦
                     </span>
+
                     <span>Astro Trainer</span>
                 </a>
 
                 <nav
-                    className="main-navigation"
                     aria-label="Основная навигация"
+                    className="main-navigation"
                 >
-                    <a href="#sections">Разделы</a>
+                    <a href="#sections">
+                        Разделы
+                    </a>
                 </nav>
             </header>
 
@@ -132,23 +134,23 @@ function HomePage() {
                             >
                                 Начать подготовку
                             </a>
-
-                        </div>
-
-                        <div className="hero-note">
-                            <span className="hero-note-dot" />
-                            Проект находится в активной разработке
                         </div>
                     </div>
                 </section>
 
-                <section className="sections-block" id="sections">
+                <section
+                    className="sections-block"
+                    id="sections"
+                >
                     <div className="section-heading">
                         <div>
                             <p className="section-kicker">
                                 Четыре направления
                             </p>
-                            <h2>Материалы для подготовки</h2>
+
+                            <h2>
+                                Материалы для подготовки
+                            </h2>
                         </div>
 
                         <p>
@@ -158,57 +160,75 @@ function HomePage() {
                     </div>
 
                     <div className="cards-grid">
-                        {trainingSections.map((section) => (
-                            <article
-                                className={`training-card training-card--${section.theme}`}
-                                key={section.path}
-                            >
-                                <div className="card-top">
-                                    <span className="card-number">
-                                        {section.number}
-                                    </span>
-                                </div>
+                        {trainingSections.map(
+                            (section) => (
+                                <article
+                                    className={
+                                        'training-card '
+                                        + `training-card--${section.theme}`
+                                    }
+                                    key={section.path}
+                                >
+                                    <h3>{section.title}</h3>
 
-                                <p className="card-subtitle">
-                                    {section.subtitle}
-                                </p>
+                                    <p className="card-description">
+                                        {section.description}
+                                    </p>
 
-                                <h3>{section.title}</h3>
+                                    <ul className="topics-list">
+                                        {section.topics.map(
+                                            (topic) => (
+                                                <li
+                                                    key={
+                                                        topic.path
+                                                        + topic.title
+                                                    }
+                                                >
+                                                    <Link to={topic.path}>
+                                                        {topic.title}
+                                                    </Link>
+                                                </li>
+                                            ),
+                                        )}
+                                    </ul>
 
-                                <p className="card-description">
-                                    {section.description}
-                                </p>
+                                    <Link
+                                        className="card-footer"
+                                        to={section.path}
+                                    >
+                                        <span>
+                                            Перейти к разделу
+                                        </span>
 
-                                <ul className="topics-list">
-                                    {section.topics.map((topic) => (
-                                        <li key={topic.path + topic.title}>
-                                            <Link to={topic.path}>
-                                                {topic.title}
-                                            </Link>
-                                        </li>
-                                    ))}
-                                </ul>
-
-                                <Link className="card-footer" to={section.path}>
-                                    <span>Перейти к разделу</span>
-                                    <span aria-hidden="true">→</span>
-                                </Link>
-                            </article>
-                        ))}
+                                        <span aria-hidden="true">
+                                            →
+                                        </span>
+                                    </Link>
+                                </article>
+                            ),
+                        )}
                     </div>
                 </section>
             </main>
 
             <footer className="site-footer">
-                <a className="brand footer-brand" href="#top">
-                    <span className="brand-mark" aria-hidden="true">
+                <a
+                    className="brand footer-brand"
+                    href="#top"
+                >
+                    <span
+                        aria-hidden="true"
+                        className="brand-mark"
+                    >
                         ✦
                     </span>
+
                     <span>Astro Trainer</span>
                 </a>
             </footer>
         </div>
     )
 }
+
 
 export default HomePage

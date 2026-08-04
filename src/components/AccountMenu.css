@@ -13,14 +13,16 @@
     top: 22px;
     right: 24px;
     z-index: 1000;
+    width: 46px;
+    height: 46px;
 }
 
 .account-menu-trigger {
     display: grid;
-    place-items: center;
     width: 46px;
     height: 46px;
     padding: 0;
+    place-items: center;
     border: 0;
     border-radius: 50%;
     outline: none;
@@ -35,9 +37,10 @@
 
 .account-menu-avatar {
     display: grid;
-    place-items: center;
     width: 44px;
     height: 44px;
+    place-items: center;
+    color: #ffffff;
     border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 50%;
     background: linear-gradient(
@@ -46,7 +49,6 @@
         #aa8cff
     );
     box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
-    color: #ffffff;
     font-size: 14px;
     font-weight: 800;
     letter-spacing: 0.04em;
@@ -56,8 +58,22 @@
 }
 
 .account-menu-trigger:hover .account-menu-avatar {
-    transform: translateY(-1px);
     box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38);
+    transform: translateY(-1px);
+}
+
+.account-menu-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 250px;
+    max-width: calc(100vw - 48px);
+    overflow: hidden;
+    color: #f7f7fb;
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    border-radius: 18px;
+    background: #080b14;
+    box-shadow: 0 24px 65px rgba(0, 0, 0, 0.55);
 }
 
 .account-menu-user {
@@ -90,26 +106,26 @@
 .account-menu-item {
     display: flex;
     width: 100%;
-    box-sizing: border-box;
-    align-items: center;
     min-height: 46px;
+    box-sizing: border-box;
     padding: 0 18px;
+    align-items: center;
+    color: rgba(247, 247, 251, 0.84);
     border: 0;
     background: transparent;
-    color: rgba(247, 247, 251, 0.84);
+    cursor: pointer;
     font: inherit;
     font-size: 14px;
     text-align: left;
     text-decoration: none;
-    cursor: pointer;
     transition:
         background 140ms ease,
         color 140ms ease;
 }
 
 .account-menu-item:hover {
-    background: rgba(255, 255, 255, 0.07);
     color: #ffffff;
+    background: rgba(255, 255, 255, 0.07);
 }
 
 .account-menu-item--logout {
@@ -117,8 +133,8 @@
 }
 
 .account-menu-item--logout:hover {
-    background: rgba(255, 90, 90, 0.1);
     color: #ffc1c1;
+    background: rgba(255, 90, 90, 0.1);
 }
 
 @media (max-width: 760px) {
@@ -129,6 +145,8 @@
     .account-menu {
         top: 12px;
         right: 12px;
+        width: 42px;
+        height: 42px;
     }
 
     .account-menu-trigger,
@@ -142,6 +160,9 @@
             250px,
             calc(100vw - 24px)
         );
+        max-width: none;
+        max-height: calc(100vh - 78px);
+        overflow-y: auto;
     }
 
     .main-navigation {

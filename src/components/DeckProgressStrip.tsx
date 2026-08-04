@@ -3,7 +3,6 @@ import './DeckProgressStrip.css'
 
 type DeckProgressStripProps = {
     title: string
-    description: string
     total: number
     learned: number
     inProgress: number
@@ -130,11 +129,6 @@ function buildInProgressGradient(
             requiredStreak,
         )
 
-        /*
-         * Две одинаковые точки создают
-         * участок цвета, длина которого
-         * равна числу объектов с таким streak.
-         */
         stops.push(
             `${color} `
             + `${startPercentage.toFixed(2)}%`,
@@ -157,7 +151,6 @@ function buildInProgressGradient(
 
 function DeckProgressStrip({
     title,
-    description,
     total,
     learned,
     inProgress,
@@ -202,13 +195,7 @@ function DeckProgressStrip({
         <article className="deck-progress-card">
             <header className="deck-progress-heading">
                 <div>
-                    <p className="deck-progress-kicker">
-                        Колода
-                    </p>
-
                     <h3>{title}</h3>
-
-                    <p>{description}</p>
                 </div>
 
                 <div className="deck-progress-percentage">
@@ -221,7 +208,6 @@ function DeckProgressStrip({
                     </span>
                 </div>
             </header>
-
 
             <div
                 aria-label={
@@ -280,7 +266,6 @@ function DeckProgressStrip({
                 </div>
             </div>
 
-
             <div className="deck-progress-legend">
                 <div className="deck-progress-legend-item">
                     <span
@@ -296,7 +281,6 @@ function DeckProgressStrip({
                     </div>
                 </div>
 
-
                 <div className="deck-progress-legend-item">
                     <span
                         className="
@@ -311,7 +295,6 @@ function DeckProgressStrip({
                     </div>
                 </div>
 
-
                 <div className="deck-progress-legend-item">
                     <span
                         className="
@@ -325,7 +308,6 @@ function DeckProgressStrip({
                         <strong>{notStarted}</strong>
                     </div>
                 </div>
-
 
                 <div className="deck-progress-total">
                     {totalLabel}: {total}

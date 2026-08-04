@@ -52,7 +52,6 @@ function ProfilePage() {
         requestVerificationEmail,
     } = useAuth()
 
-
     const [
         messierItems,
         setMessierItems,
@@ -82,7 +81,6 @@ function ProfilePage() {
         setProgressRequestVersion,
     ] = useState(0)
 
-
     const messierProgress = useMemo(
         () =>
             getMessierProgressOverview(
@@ -98,7 +96,6 @@ function ProfilePage() {
             ),
         [starsItems],
     )
-
 
     const [
         isSendingVerification,
@@ -264,7 +261,6 @@ function ProfilePage() {
                     ← На главную
                 </Link>
 
-
                 <div className="profile-heading">
                     <p className="profile-kicker">
                         Личный кабинет
@@ -274,14 +270,7 @@ function ProfilePage() {
                         {user.first_name}{' '}
                         {user.last_name}
                     </h1>
-
-                    <p>
-                        Здесь хранится информация
-                        об аккаунте и прогрессе
-                        обучения.
-                    </p>
                 </div>
-
 
                 <dl className="profile-details">
                     <div>
@@ -320,7 +309,6 @@ function ProfilePage() {
                                     : 'Пока не подтверждена'}
                             </span>
 
-
                             {!user.email_verified ? (
                                 <div className="profile-email-actions">
                                     <button
@@ -337,7 +325,6 @@ function ProfilePage() {
                                             ? 'Создаём ссылку...'
                                             : 'Отправить ссылку ещё раз'}
                                     </button>
-
 
                                     {verificationMessage ? (
                                         <p
@@ -368,20 +355,10 @@ function ProfilePage() {
                     </div>
                 </dl>
 
-
                 <section className="profile-progress">
                     <div className="profile-progress-heading">
                         <h2>Прогресс</h2>
-
-                        <p>
-                            Полоса показывает долю
-                            выученных объектов, объектов
-                            в процессе и ещё не начатых.
-                            Наведи курсор на цветную часть,
-                            чтобы увидеть точное количество.
-                        </p>
                     </div>
-
 
                     {isProgressLoading ? (
                         <div className="profile-progress-state">
@@ -412,11 +389,6 @@ function ProfilePage() {
                     ) : (
                         <div className="profile-progress-list">
                             <DeckProgressStrip
-                                description={
-                                    'Общий streak одного объекта '
-                                    + 'с чередованием двух '
-                                    + 'направлений.'
-                                }
                                 inProgress={
                                     messierProgress
                                         .inProgress
@@ -446,11 +418,6 @@ function ProfilePage() {
 
                             <div className="profile-progress-stars-grid">
                                 <DeckProgressStrip
-                                    description={
-                                        'Самые часто встречающиеся '
-                                        + 'звёзды. Прогресс общий '
-                                        + 'с полной колодой.'
-                                    }
                                     inProgress={
                                         starsProgress
                                             .main
@@ -486,11 +453,6 @@ function ProfilePage() {
                                 />
 
                                 <DeckProgressStrip
-                                    description={
-                                        'Все звёзды из выборки. '
-                                        + 'Выученные основные уже '
-                                        + 'учитываются здесь.'
-                                    }
                                     inProgress={
                                         starsProgress
                                             .all
