@@ -29,6 +29,11 @@ type FlashcardSelectors = {
 }
 
 
+type GestureAxis =
+    | 'pending'
+    | 'horizontal'
+
+
 type ActiveGesture = {
     pointerId: number
     card: HTMLElement
@@ -36,10 +41,12 @@ type ActiveGesture = {
     startY: number
     currentX: number
     currentY: number
+    axis: GestureAxis
 }
 
 
 const SWIPE_THRESHOLD = 72
+const GESTURE_LOCK_THRESHOLD = 10
 const CLICK_MOVEMENT_LIMIT = 12
 const SWIPE_ANIMATION_DURATION = 170
 
@@ -645,20 +652,17 @@ function FlashcardTrainer({
                 startY: event.clientY,
                 currentX: event.clientX,
                 currentY: event.clientY,
+                axis: 'pending',
             }
 
-            card.classList.add(
-                'flashcard-is-dragging',
-            )
-
-            try {
-                card.setPointerCapture(
-                    event.pointerId,
-                )
-            } catch {
-                // Некоторые браузеры сами
-                // удерживают touch pointer.
-            }
+            /*
+             * Не захватываем pointer сразу.
+             * Иначе Chrome на Android может
+             * не передать вертикальный жест
+             * прокрутке страницы. Захватим его
+             * только после явного движения
+             * по горизонтали.
+             */
         }
 
 
@@ -687,9 +691,81 @@ function FlashcardTrainer({
                 event.clientY
                 - activeGesture.startY
 
-            if (
+            const absoluteHorizontalMovement =
                 Math.abs(horizontalMovement)
-                <= Math.abs(verticalMovement)
+
+            const absoluteVerticalMovement =
+                Math.abs(verticalMovement)
+
+            if (
+                activeGesture.axis
+                === 'pending'
+            ) {
+                if (
+                    Math.max(
+                        absoluteHorizontalMovement,
+                        absoluteVerticalMovement,
+                    ) < GESTURE_LOCK_THRESHOLD
+                ) {
+                    return
+                }
+
+                /*
+                 * Вертикальное движение целиком
+                 * отдаём браузеру. Никакого
+                 * preventDefault и pointer capture:
+                 * страница нормально прокручивается,
+                 * даже если палец начал жест прямо
+                 * на карточке.
+                 */
+                if (
+                    absoluteVerticalMovement
+                    >= absoluteHorizontalMovement
+                ) {
+                    resetCardPosition(
+                        activeGesture.card,
+                    )
+
+                    activeGesture = null
+                    return
+                }
+
+                /*
+                 * Свайп оценивает ответ только
+                 * после открытия обратной стороны.
+                 * На стороне вопроса горизонтальный
+                 * жест ничего не блокирует.
+                 */
+                if (
+                    !hasAnswer(
+                        activeGesture.card,
+                    )
+                ) {
+                    activeGesture = null
+                    return
+                }
+
+                activeGesture.axis =
+                    'horizontal'
+
+                activeGesture.card.classList.add(
+                    'flashcard-is-dragging',
+                )
+
+                try {
+                    activeGesture.card
+                        .setPointerCapture(
+                            event.pointerId,
+                        )
+                } catch {
+                    // Не все мобильные браузеры
+                    // поддерживают pointer capture.
+                }
+            }
+
+            if (
+                activeGesture.axis
+                !== 'horizontal'
             ) {
                 return
             }
@@ -718,6 +794,21 @@ function FlashcardTrainer({
             const gesture = activeGesture
             activeGesture = null
 
+            try {
+                if (
+                    gesture.card.hasPointerCapture(
+                        event.pointerId,
+                    )
+                ) {
+                    gesture.card.releasePointerCapture(
+                        event.pointerId,
+                    )
+                }
+            } catch {
+                // Захват мог уже завершиться
+                // после pointercancel.
+            }
+
             const horizontalMovement =
                 gesture.currentX
                 - gesture.startX
@@ -733,7 +824,8 @@ function FlashcardTrainer({
                 )
 
             const isHorizontalSwipe =
-                !wasCancelled
+                gesture.axis === 'horizontal'
+                && !wasCancelled
                 && Math.abs(horizontalMovement)
                     >= SWIPE_THRESHOLD
                 && Math.abs(horizontalMovement)
