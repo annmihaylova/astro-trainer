@@ -1,0 +1,242 @@
+.skychart-workspace {
+    display: grid;
+    overflow: hidden;
+    grid-template-columns: minmax(260px, 330px) minmax(0, 1fr);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    background: var(--surface);
+}
+
+.skychart-controls {
+    padding: 28px;
+    border-right: 1px solid var(--border);
+}
+
+.skychart-controls h3 {
+    margin: 0 0 28px;
+    color: var(--text);
+    font-size: 22px;
+}
+
+.skychart-field {
+    display: grid;
+    gap: 9px;
+    margin-bottom: 18px;
+}
+
+.skychart-field span {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.skychart-field input {
+    width: 100%;
+    padding: 12px 13px;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    outline: none;
+    background: rgba(255, 255, 255, 0.035);
+    font: inherit;
+    font-size: 14px;
+    transition:
+        border-color 180ms ease,
+        background 180ms ease;
+}
+
+.skychart-field input:focus {
+    border-color: rgba(197, 184, 255, 0.72);
+    background: rgba(255, 255, 255, 0.055);
+}
+
+.skychart-control-actions {
+    display: grid;
+    gap: 10px;
+    margin-top: 28px;
+}
+
+.skychart-control-actions .button {
+    width: 100%;
+    margin: 0;
+}
+
+.skychart-control-actions .button-secondary {
+    color: var(--text);
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.skychart-control-actions .button-secondary:hover {
+    border-color: rgba(197, 184, 255, 0.5);
+    background: rgba(197, 184, 255, 0.08);
+}
+
+.skychart-current-values {
+    display: grid;
+    gap: 0;
+    margin-top: 28px;
+    border-top: 1px solid var(--border);
+}
+
+.skychart-current-values span {
+    display: flex;
+    padding-block: 13px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+}
+
+.skychart-current-values strong {
+    color: var(--text);
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.skychart-preview {
+    display: flex;
+    min-width: 0;
+    min-height: 720px;
+    padding: 36px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background:
+        radial-gradient(
+            circle at 50% 45%,
+            rgba(154, 124, 255, 0.1),
+            transparent 58%
+        ),
+        rgba(5, 8, 17, 0.32);
+}
+
+.sky-chart-viewer {
+    position: relative;
+    width: min(100%, 780px);
+    aspect-ratio: 1;
+}
+
+.sky-chart-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow:
+        0 24px 70px rgba(0, 0, 0, 0.35),
+        0 0 0 1px rgba(255, 255, 255, 0.08);
+    cursor: zoom-in;
+    touch-action: pan-y pinch-zoom;
+    user-select: none;
+}
+
+.sky-chart-svg--zoomed {
+    cursor: grab;
+}
+
+.sky-chart-svg--zoomed:active {
+    cursor: grabbing;
+}
+
+.sky-chart-zoom-controls {
+    position: absolute;
+    z-index: 2;
+    top: 18px;
+    right: 18px;
+    display: flex;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+    backdrop-filter: blur(12px);
+}
+
+.sky-chart-zoom-controls button {
+    min-width: 40px;
+    height: 40px;
+    padding: 0 10px;
+    color: #101010;
+    border: 0;
+    border-right: 1px solid rgba(0, 0, 0, 0.12);
+    background: transparent;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.sky-chart-zoom-controls button:last-child {
+    border-right: 0;
+    font-size: 11px;
+}
+
+.sky-chart-zoom-controls button:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+.sky-chart-zoom-controls button:disabled {
+    opacity: 0.38;
+    cursor: default;
+}
+
+.skychart-hint {
+    max-width: 680px;
+    margin: 20px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.55;
+    text-align: center;
+}
+
+.skychart-message {
+    display: grid;
+    min-height: 260px;
+    place-items: center;
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+}
+
+.skychart-message--error {
+    color: #ff9d9d;
+}
+
+@media (max-width: 920px) {
+    .skychart-workspace {
+        grid-template-columns: 1fr;
+    }
+
+    .skychart-controls {
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .skychart-preview {
+        min-height: auto;
+    }
+}
+
+@media (max-width: 680px) {
+    .skychart-controls {
+        padding: 22px;
+    }
+
+    .skychart-preview {
+        padding: 22px 14px 28px;
+    }
+
+    .sky-chart-zoom-controls {
+        top: 12px;
+        right: 12px;
+    }
+
+    .sky-chart-zoom-controls button {
+        min-width: 36px;
+        height: 36px;
+    }
+}
