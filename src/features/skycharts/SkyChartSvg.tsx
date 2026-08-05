@@ -16,10 +16,11 @@ import type {
 const VIEWPORT_SIZE = 1000
 const MIN_VIEWBOX_SIZE = 125
 const CLICK_MOVEMENT_LIMIT_PX = 6
-const STAR_HIT_RADIUS_PX = 13
+const STAR_HIT_RADIUS_PX = 10
 
 export type SkyChartSvgProps = {
     stars: readonly ProjectedStar[]
+    selectableStars: readonly ProjectedStar[]
     lines: readonly SkyChartLine[]
     selectedStarId: string | null
     onStarSelect: (star: ProjectedStar) => void
@@ -117,6 +118,7 @@ function clientPointToChartPoint(
 
 function SkyChartSvg({
     stars,
+    selectableStars,
     lines,
     selectedStarId,
     onStarSelect,
@@ -225,7 +227,7 @@ function SkyChartSvg({
         let nearestStar: ProjectedStar | null = null
         let nearestDistanceSquared = Number.POSITIVE_INFINITY
 
-        for (const star of stars) {
+        for (const star of selectableStars) {
             const deltaX = pointer.x - star.x
             const deltaY = pointer.y - star.y
             const distanceSquared = deltaX ** 2 + deltaY ** 2

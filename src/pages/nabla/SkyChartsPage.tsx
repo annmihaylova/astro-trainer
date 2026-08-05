@@ -8,6 +8,10 @@ import {
 import type { ChangeEvent } from 'react'
 import SkyChartSvg from '../../features/skycharts/SkyChartSvg'
 import { projectSkyChart } from '../../features/skycharts/astronomy'
+import {
+    buildNamedCatalogStarIds,
+    chooseSelectableStars,
+} from '../../features/skycharts/selectableStars'
 import type {
     CatalogStar,
     EquatorialFieldParameters,
@@ -131,7 +135,7 @@ function randomParameters(
 }
 
 function inputNumber(event: ChangeEvent<HTMLInputElement>) {
-    return inputNumber(event)
+    return Number(event.target.value)
 }
 
 function buildLineId(firstStarId: string, secondStarId: string) {
@@ -196,6 +200,18 @@ function SkyChartsPage() {
     const projectedStars = useMemo(
         () => projectSkyChart(catalog, chartParameters),
         [catalog, chartParameters],
+    )
+
+    const namedCatalogStarIds = useMemo(
+        () => buildNamedCatalogStarIds(catalog),
+        [catalog],
+    )
+
+    const selectableStars = useMemo(
+        () => chooseSelectableStars(projectedStars, {
+            namedStarIds: namedCatalogStarIds,
+        }),
+        [namedCatalogStarIds, projectedStars],
     )
 
     function resetDrawing() {
@@ -503,6 +519,10 @@ function SkyChartsPage() {
                             <strong>{projectedStars.length}</strong>
                         </span>
                         <span>
+                            Кликабельных звёзд
+                            <strong>{selectableStars.length}</strong>
+                        </span>
+                        <span>
                             Нарисовано линий
                             <strong>{lines.length}</strong>
                         </span>
@@ -522,6 +542,7 @@ function SkyChartsPage() {
                         <>
                             <SkyChartSvg
                                 stars={projectedStars}
+                                selectableStars={selectableStars}
                                 lines={lines}
                                 selectedStarId={selectedStarId}
                                 onStarSelect={handleStarSelect}

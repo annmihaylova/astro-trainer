@@ -13,11 +13,21 @@ const STAR_REFERENCE_MAGNITUDE = 0
 const STAR_REFERENCE_DIAMETER = 5
 const STAR_SIZE_SCALE = 1.5
 
-// Matplotlib принимает размер scatter в типографских пунктах,
-// а SVG использует координаты viewBox. Коэффициент меняет только
-// общий визуальный масштаб, но сохраняет исходную зависимость
-// диаметра от звёздной величины.
-const MATPLOTLIB_POINT_TO_SVG_UNIT = 1.8
+// Та же зависимость, что в исходном Python-ноутбуке:
+// d = d0 * 10 ** (-0.2 * (Vmag - m0))
+// marker_sizes = (d * size_scale) ** 2
+//
+// В SVG задаём радиус напрямую. Поэтому линейный диаметр маркера
+// равен d * size_scale, а радиус — половине этого значения.
+// Никаких минимальных размеров и линейного пересчёта по величине нет:
+// слабые звёзды действительно должны становиться почти точками.
+function starRadius(magnitude: number) {
+    const diameter = STAR_REFERENCE_DIAMETER * 10 ** (
+        -0.2 * (magnitude - STAR_REFERENCE_MAGNITUDE)
+    )
+
+    return diameter * STAR_SIZE_SCALE / 2
+}
 
 function clamp(value: number, minimum: number, maximum: number) {
     return Math.min(maximum, Math.max(minimum, value))
@@ -32,18 +42,6 @@ function normalizeHours(value: number) {
     return ((value % 24) + 24) % 24
 }
 
-function starRadius(magnitude: number) {
-    const diameter = STAR_REFERENCE_DIAMETER * 10 ** (
-        -0.2 * (magnitude - STAR_REFERENCE_MAGNITUDE)
-    )
-    const renderedDiameter = (
-        diameter
-        * STAR_SIZE_SCALE
-        * MATPLOTLIB_POINT_TO_SVG_UNIT
-    )
-
-    return renderedDiameter / 2
-}
 
 function projectVisibleHemisphere(
     stars: readonly CatalogStar[],
