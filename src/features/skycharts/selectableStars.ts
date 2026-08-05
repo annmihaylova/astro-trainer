@@ -47,7 +47,6 @@ const SUPERSCRIPT_DIGITS: Readonly<Record<string, string>> = {
     '⁹': '9',
 }
 
-const NAMED_STAR_MINIMUM_DISTANCE = 15
 const EXTRA_STAR_MINIMUM_DISTANCE = 44
 const EXTRA_STAR_LIMITING_MAGNITUDE = 5.0
 const MINIMUM_SELECTABLE_COUNT = 24
@@ -129,18 +128,6 @@ function squaredDistance(
     )
 }
 
-function isFarEnoughFromSelected(
-    star: ProjectedStar,
-    selectedStars: readonly ProjectedStar[],
-    minimumDistance: number,
-) {
-    const minimumDistanceSquared = minimumDistance ** 2
-
-    return selectedStars.every((selectedStar) => (
-        squaredDistance(star, selectedStar) >= minimumDistanceSquared
-    ))
-}
-
 function targetSelectableCount(visibleStarCount: number) {
     return Math.min(
         MAXIMUM_SELECTABLE_COUNT,
@@ -196,31 +183,21 @@ export function chooseSelectableStars(
         selectedStars.push(star)
     }
 
-    // Когда подключим эталонные астеризмы Stellarium, их вершины
-    // передаются сюда и всегда остаются кликабельными.
+    // Все видимые вершины официальных линий западной культуры
+    // Stellarium добавляются без каких-либо ограничений по расстоянию.
     visibleStars
         .filter((star) => requiredAsterismStarIds.has(star.id))
         .sort((first, second) => first.magnitude - second.magnitude)
         .forEach(addStar)
 
-    // Именованные звёзды из существующей колоды имеют следующий
-    // приоритет. Очень тесные пары не получают два перекрывающихся
-    // маркера: остаётся более яркая звезда.
-    const namedStars = visibleStars
+    // Все именованные звёзды из существующей колоды тоже должны
+    // оставаться кликабельными. Даже тесные пары не отбрасываем:
+    // выбор обработчик делает по ближайшей звезде, а при необходимости
+    // пользователь может увеличить карту.
+    visibleStars
         .filter((star) => options.namedStarIds.has(star.id))
         .sort((first, second) => first.magnitude - second.magnitude)
-
-    for (const star of namedStars) {
-        if (
-            isFarEnoughFromSelected(
-                star,
-                selectedStars,
-                NAMED_STAR_MINIMUM_DISTANCE,
-            )
-        ) {
-            addStar(star)
-        }
-    }
+        .forEach(addStar)
 
     const targetCount = Math.max(
         selectedStars.length,

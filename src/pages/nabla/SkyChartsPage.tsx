@@ -12,6 +12,13 @@ import {
     buildNamedCatalogStarIds,
     chooseSelectableStars,
 } from '../../features/skycharts/selectableStars'
+import {
+    bindStellariumReferenceToCatalog,
+    loadStellariumWesternReference,
+} from '../../features/skycharts/stellariumReference'
+import type {
+    StellariumWesternReference,
+} from '../../features/skycharts/stellariumReference'
 import type {
     CatalogStar,
     EquatorialFieldParameters,
@@ -145,6 +152,10 @@ function buildLineId(firstStarId: string, secondStarId: string) {
 function SkyChartsPage() {
     const [catalog, setCatalog] = useState<readonly CatalogStar[]>([])
     const [catalogError, setCatalogError] = useState<string | null>(null)
+    const [stellariumReference, setStellariumReference] = (
+        useState<StellariumWesternReference | null>(null)
+    )
+    const [stellariumError, setStellariumError] = useState<string | null>(null)
     const [draftParameters, setDraftParameters] = (
         useState<SkyChartParameters>(DEFAULT_VISIBLE_PARAMETERS)
     )
@@ -197,21 +208,83 @@ function SkyChartsPage() {
         return () => abortController.abort()
     }, [])
 
+    useEffect(() => {
+        const abortController = new AbortController()
+
+        async function loadStellariumReference() {
+            try {
+                const loadedReference = await loadStellariumWesternReference(
+                    abortController.signal,
+                )
+
+                setStellariumReference(loadedReference)
+                setStellariumError(null)
+            } catch (error) {
+                if (
+                    error instanceof DOMException
+                    && error.name === 'AbortError'
+                ) {
+                    return
+                }
+
+                setStellariumError(
+                    error instanceof Error
+                        ? error.message
+                        : 'Не удалось загрузить линии созвездий Stellarium.',
+                )
+            }
+        }
+
+        void loadStellariumReference()
+
+        return () => abortController.abort()
+    }, [])
+
+    const boundStellariumReference = useMemo(
+        () => (
+            stellariumReference && catalog.length > 0
+                ? bindStellariumReferenceToCatalog(
+                    catalog,
+                    stellariumReference,
+                )
+                : null
+        ),
+        [catalog, stellariumReference],
+    )
+
+    const chartCatalog = boundStellariumReference?.catalog ?? catalog
+    const requiredAsterismStarIds = (
+        boundStellariumReference?.requiredStarIds
+        ?? new Set<string>()
+    )
+
     const projectedStars = useMemo(
-        () => projectSkyChart(catalog, chartParameters),
-        [catalog, chartParameters],
+        () => projectSkyChart(chartCatalog, chartParameters),
+        [chartCatalog, chartParameters],
     )
 
     const namedCatalogStarIds = useMemo(
-        () => buildNamedCatalogStarIds(catalog),
-        [catalog],
+        () => buildNamedCatalogStarIds(chartCatalog),
+        [chartCatalog],
     )
 
     const selectableStars = useMemo(
         () => chooseSelectableStars(projectedStars, {
             namedStarIds: namedCatalogStarIds,
+            requiredAsterismStarIds,
         }),
-        [namedCatalogStarIds, projectedStars],
+        [
+            namedCatalogStarIds,
+            projectedStars,
+            requiredAsterismStarIds,
+        ],
+    )
+
+    const visibleAsterismVertexCount = useMemo(
+        () => projectedStars.filter(
+            (star) => requiredAsterismStarIds.has(star.id),
+        ).length,
+        [projectedStars, requiredAsterismStarIds],
     )
 
     function resetDrawing() {
@@ -519,6 +592,16 @@ function SkyChartsPage() {
                             <strong>{projectedStars.length}</strong>
                         </span>
                         <span>
+                            Вершин Stellarium
+                            <strong>{visibleAsterismVertexCount}</strong>
+                        </span>
+                        <span>
+                            Созвездий в эталоне
+                            <strong>
+                                {boundStellariumReference?.constellations.length ?? 0}
+                            </strong>
+                        </span>
+                        <span>
                             Кликабельных звёзд
                             <strong>{selectableStars.length}</strong>
                         </span>
@@ -530,13 +613,13 @@ function SkyChartsPage() {
                 </aside>
 
                 <div className="skychart-preview">
-                    {catalogError ? (
+                    {catalogError || stellariumError ? (
                         <div className="skychart-message skychart-message--error">
-                            {catalogError}
+                            {catalogError ?? stellariumError}
                         </div>
-                    ) : catalog.length === 0 ? (
+                    ) : catalog.length === 0 || !boundStellariumReference ? (
                         <div className="skychart-message">
-                            Загружаем каталог звёзд…
+                            Загружаем каталог и эталон Stellarium…
                         </div>
                     ) : (
                         <>
@@ -549,9 +632,9 @@ function SkyChartsPage() {
                             />
                             <p className="skychart-hint">
                                 Нажмите на две звезды, чтобы соединить их прямой линией.
-                                Повторный клик по первой звезде отменяет выбор.
-                                Колёсико мыши меняет масштаб, перетаскивание двигает
-                                приближённую карту.
+                                Все видимые вершины линий западной культуры Stellarium
+                                кликабельны. Повторный клик по первой звезде отменяет выбор.
+                                Колёсико мыши меняет масштаб, перетаскивание двигает карту.
                             </p>
                         </>
                     )}

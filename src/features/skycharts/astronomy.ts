@@ -12,6 +12,7 @@ const RAD_TO_DEG = 180 / Math.PI
 const STAR_REFERENCE_MAGNITUDE = 0
 const STAR_REFERENCE_DIAMETER = 5
 const STAR_SIZE_SCALE = 1.5
+const STAR_GLOBAL_SIZE_MULTIPLIER = 1.25
 
 // Та же зависимость, что в исходном Python-ноутбуке:
 // d = d0 * 10 ** (-0.2 * (Vmag - m0))
@@ -26,7 +27,12 @@ function starRadius(magnitude: number) {
         -0.2 * (magnitude - STAR_REFERENCE_MAGNITUDE)
     )
 
-    return diameter * STAR_SIZE_SCALE / 2
+    return (
+        diameter
+        * STAR_SIZE_SCALE
+        * STAR_GLOBAL_SIZE_MULTIPLIER
+        / 2
+    )
 }
 
 function clamp(value: number, minimum: number, maximum: number) {
@@ -64,7 +70,10 @@ function projectVisibleHemisphere(
     const projectedStars: ProjectedStar[] = []
 
     for (const star of stars) {
-        if (star.magnitude > parameters.limitingMagnitude) {
+        if (
+            star.magnitude > parameters.limitingMagnitude
+            && !star.isAsterismVertex
+        ) {
             continue
         }
 
@@ -167,7 +176,10 @@ function projectEquatorialField(
     const projectedStars: ProjectedStar[] = []
 
     for (const star of stars) {
-        if (star.magnitude > parameters.limitingMagnitude) {
+        if (
+            star.magnitude > parameters.limitingMagnitude
+            && !star.isAsterismVertex
+        ) {
             continue
         }
 

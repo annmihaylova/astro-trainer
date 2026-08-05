@@ -1,11 +1,13 @@
 export type CatalogStar = {
     id: string
-    hr: number
+    hr: number | null
     hd: number | null
+    hip?: number | null
     name: string | null
     raDeg: number
     decDeg: number
     magnitude: number
+    isAsterismVertex?: boolean
 }
 
 export type SkyChartMode = (
