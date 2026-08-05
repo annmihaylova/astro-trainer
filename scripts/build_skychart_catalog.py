@@ -6,6 +6,15 @@ from pathlib import Path
 from typing import Any
 
 
+# The Bright Star Catalogue stores T CrB at its historical nova maximum
+# (V = 2.0), not at its ordinary quiescent brightness. For a static sky
+# chart this would create a large false naked-eye star beside Corona
+# Borealis. Use its quiescent value instead.
+VARIABLE_MAGNITUDE_OVERRIDES: dict[str, float] = {
+    "T CrB": 10.8,
+}
+
+
 def parse_int(value: str) -> int | None:
     value = value.strip()
     if not value:
@@ -32,6 +41,7 @@ def parse_catalog_line(line: str) -> dict[str, Any] | None:
     hr = parse_int(line[0:4])
     name = line[4:14].strip() or None
     hd = parse_int(line[25:31])
+    variable_id = line[51:60].strip() or None
 
     ra_hours = parse_float(line[75:77])
     ra_minutes = parse_float(line[77:79])
@@ -74,6 +84,11 @@ def parse_catalog_line(line: str) -> dict[str, Any] | None:
     )
     dec_deg = dec_abs if dec_sign == "+" else -dec_abs
 
+    display_magnitude = VARIABLE_MAGNITUDE_OVERRIDES.get(
+        variable_id or "",
+        float(magnitude),
+    )
+
     return {
         "id": f"hr-{hr}",
         "hr": hr,
@@ -81,7 +96,7 @@ def parse_catalog_line(line: str) -> dict[str, Any] | None:
         "name": name,
         "raDeg": round(ra_deg, 8),
         "decDeg": round(dec_deg, 8),
-        "magnitude": round(float(magnitude), 3),
+        "magnitude": round(display_magnitude, 3),
     }
 
 
@@ -89,7 +104,7 @@ def build_catalog(input_path: Path) -> list[dict[str, Any]]:
     stars: list[dict[str, Any]] = []
 
     with input_path.open("r", encoding="latin-1") as catalog_file:
-        for line_number, raw_line in enumerate(catalog_file, start=1):
+        for raw_line in catalog_file:
             line = raw_line.rstrip("\n\r")
 
             if len(line) < 107:
