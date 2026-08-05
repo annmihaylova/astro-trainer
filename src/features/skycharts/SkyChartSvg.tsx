@@ -1,19 +1,28 @@
 import {
     useEffect,
     useId,
+    useMemo,
     useRef,
     useState,
 } from 'react'
 import type {
     PointerEvent as ReactPointerEvent,
 } from 'react'
-import type { ProjectedStar } from './types'
+import type {
+    ProjectedStar,
+    SkyChartLine,
+} from './types'
 
 const VIEWPORT_SIZE = 1000
 const MIN_VIEWBOX_SIZE = 125
+const CLICK_MOVEMENT_LIMIT_PX = 6
+const STAR_HIT_RADIUS_PX = 13
 
 export type SkyChartSvgProps = {
     stars: readonly ProjectedStar[]
+    lines: readonly SkyChartLine[]
+    selectedStarId: string | null
+    onStarSelect: (star: ProjectedStar) => void
 }
 
 type ViewBox = {
@@ -23,11 +32,12 @@ type ViewBox = {
     height: number
 }
 
-type DragState = {
+type PointerState = {
     pointerId: number
     startClientX: number
     startClientY: number
     startViewBox: ViewBox
+    moved: boolean
 }
 
 const INITIAL_VIEWBOX: ViewBox = {
@@ -83,18 +93,58 @@ function calculateZoomedViewBox(
     })
 }
 
-function SkyChartSvg({ stars }: SkyChartSvgProps) {
+function clientPointToChartPoint(
+    clientX: number,
+    clientY: number,
+    bounds: DOMRect,
+    viewBox: ViewBox,
+) {
+    return {
+        x: (
+            viewBox.x
+            + (clientX - bounds.left)
+            / bounds.width
+            * viewBox.width
+        ),
+        y: (
+            viewBox.y
+            + (clientY - bounds.top)
+            / bounds.height
+            * viewBox.height
+        ),
+    }
+}
+
+function SkyChartSvg({
+    stars,
+    lines,
+    selectedStarId,
+    onStarSelect,
+}: SkyChartSvgProps) {
     const svgRef = useRef<SVGSVGElement | null>(null)
-    const dragStateRef = useRef<DragState | null>(null)
+    const pointerStateRef = useRef<PointerState | null>(null)
     const viewBoxRef = useRef<ViewBox>(INITIAL_VIEWBOX)
     const [viewBox, setViewBox] = useState<ViewBox>(INITIAL_VIEWBOX)
     const clipPathId = `sky-chart-${useId().replaceAll(':', '')}`
     const isZoomed = viewBox.width < VIEWPORT_SIZE
 
+    const starsById = useMemo(
+        () => new Map(stars.map((star) => [star.id, star])),
+        [stars],
+    )
+    const selectedStar = selectedStarId
+        ? starsById.get(selectedStarId) ?? null
+        : null
+
     function applyViewBox(nextViewBox: ViewBox) {
         const clampedViewBox = clampViewBox(nextViewBox)
         viewBoxRef.current = clampedViewBox
         setViewBox(clampedViewBox)
+    }
+
+    function resetViewBox() {
+        viewBoxRef.current = INITIAL_VIEWBOX
+        setViewBox(INITIAL_VIEWBOX)
     }
 
     function zoomAroundPoint(
@@ -111,6 +161,10 @@ function SkyChartSvg({ stars }: SkyChartSvgProps) {
     }
 
     useEffect(() => {
+        resetViewBox()
+    }, [stars])
+
+    useEffect(() => {
         const svgElement = svgRef.current
 
         if (!svgElement) {
@@ -122,23 +176,17 @@ function SkyChartSvg({ stars }: SkyChartSvgProps) {
 
             const bounds = svgElement.getBoundingClientRect()
             const currentViewBox = viewBoxRef.current
-            const pointerX = (
-                currentViewBox.x
-                + (event.clientX - bounds.left)
-                / bounds.width
-                * currentViewBox.width
-            )
-            const pointerY = (
-                currentViewBox.y
-                + (event.clientY - bounds.top)
-                / bounds.height
-                * currentViewBox.height
+            const pointer = clientPointToChartPoint(
+                event.clientX,
+                event.clientY,
+                bounds,
+                currentViewBox,
             )
             const scaleFactor = event.deltaY < 0 ? 0.82 : 1.22
             const nextViewBox = calculateZoomedViewBox(
                 currentViewBox,
-                pointerX,
-                pointerY,
+                pointer.x,
+                pointer.y,
                 scaleFactor,
             )
 
@@ -157,66 +205,146 @@ function SkyChartSvg({ stars }: SkyChartSvgProps) {
         }
     }, [])
 
+    function selectNearestStar(
+        event: ReactPointerEvent<SVGSVGElement>,
+    ) {
+        const bounds = event.currentTarget.getBoundingClientRect()
+        const currentViewBox = viewBoxRef.current
+        const pointer = clientPointToChartPoint(
+            event.clientX,
+            event.clientY,
+            bounds,
+            currentViewBox,
+        )
+        const hitRadius = (
+            STAR_HIT_RADIUS_PX
+            * currentViewBox.width
+            / bounds.width
+        )
+
+        let nearestStar: ProjectedStar | null = null
+        let nearestDistanceSquared = Number.POSITIVE_INFINITY
+
+        for (const star of stars) {
+            const deltaX = pointer.x - star.x
+            const deltaY = pointer.y - star.y
+            const distanceSquared = deltaX ** 2 + deltaY ** 2
+            const allowedDistance = Math.max(
+                hitRadius,
+                star.radius + hitRadius * 0.35,
+            )
+
+            if (
+                distanceSquared <= allowedDistance ** 2
+                && distanceSquared < nearestDistanceSquared
+            ) {
+                nearestStar = star
+                nearestDistanceSquared = distanceSquared
+            }
+        }
+
+        if (nearestStar) {
+            onStarSelect(nearestStar)
+        }
+    }
+
     function handlePointerDown(
         event: ReactPointerEvent<SVGSVGElement>,
     ) {
-        if (
-            event.pointerType === 'touch'
-            || event.button !== 0
-            || !isZoomed
-        ) {
+        if (event.pointerType === 'mouse' && event.button !== 0) {
             return
         }
 
-        event.currentTarget.setPointerCapture(event.pointerId)
-        dragStateRef.current = {
+        pointerStateRef.current = {
             pointerId: event.pointerId,
             startClientX: event.clientX,
             startClientY: event.clientY,
             startViewBox: viewBoxRef.current,
+            moved: false,
+        }
+
+        if (event.pointerType !== 'touch' && isZoomed) {
+            event.currentTarget.setPointerCapture(event.pointerId)
         }
     }
 
     function handlePointerMove(
         event: ReactPointerEvent<SVGSVGElement>,
     ) {
-        const dragState = dragStateRef.current
-        const svg = svgRef.current
+        const pointerState = pointerStateRef.current
 
         if (
-            !dragState
-            || dragState.pointerId !== event.pointerId
-            || !svg
+            !pointerState
+            || pointerState.pointerId !== event.pointerId
         ) {
             return
         }
 
-        const bounds = svg.getBoundingClientRect()
-        const deltaX = (
-            event.clientX - dragState.startClientX
-        ) * dragState.startViewBox.width / bounds.width
-        const deltaY = (
-            event.clientY - dragState.startClientY
-        ) * dragState.startViewBox.height / bounds.height
+        const clientDeltaX = event.clientX - pointerState.startClientX
+        const clientDeltaY = event.clientY - pointerState.startClientY
 
-        applyViewBox({
-            ...dragState.startViewBox,
-            x: dragState.startViewBox.x - deltaX,
-            y: dragState.startViewBox.y - deltaY,
-        })
-    }
+        if (
+            Math.hypot(clientDeltaX, clientDeltaY)
+            > CLICK_MOVEMENT_LIMIT_PX
+        ) {
+            pointerState.moved = true
+        }
 
-    function finishPointerDrag(
-        event: ReactPointerEvent<SVGSVGElement>,
-    ) {
-        if (dragStateRef.current?.pointerId !== event.pointerId) {
+        if (
+            !pointerState.moved
+            || event.pointerType === 'touch'
+            || !isZoomed
+        ) {
             return
         }
 
-        dragStateRef.current = null
+        const bounds = event.currentTarget.getBoundingClientRect()
+        const deltaX = (
+            clientDeltaX
+            * pointerState.startViewBox.width
+            / bounds.width
+        )
+        const deltaY = (
+            clientDeltaY
+            * pointerState.startViewBox.height
+            / bounds.height
+        )
+
+        applyViewBox({
+            ...pointerState.startViewBox,
+            x: pointerState.startViewBox.x - deltaX,
+            y: pointerState.startViewBox.y - deltaY,
+        })
+    }
+
+    function handlePointerUp(
+        event: ReactPointerEvent<SVGSVGElement>,
+    ) {
+        const pointerState = pointerStateRef.current
+
+        if (
+            !pointerState
+            || pointerState.pointerId !== event.pointerId
+        ) {
+            return
+        }
+
+        if (!pointerState.moved) {
+            selectNearestStar(event)
+        }
+
+        pointerStateRef.current = null
 
         if (event.currentTarget.hasPointerCapture(event.pointerId)) {
             event.currentTarget.releasePointerCapture(event.pointerId)
+        }
+    }
+
+    function handlePointerCancel(
+        event: ReactPointerEvent<SVGSVGElement>,
+    ) {
+        if (pointerStateRef.current?.pointerId === event.pointerId) {
+            pointerStateRef.current = null
         }
     }
 
@@ -227,11 +355,6 @@ function SkyChartSvg({ stars }: SkyChartSvgProps) {
             currentViewBox.y + currentViewBox.height / 2,
             scaleFactor,
         )
-    }
-
-    function resetViewBox() {
-        viewBoxRef.current = INITIAL_VIEWBOX
-        setViewBox(INITIAL_VIEWBOX)
     }
 
     return (
@@ -274,11 +397,11 @@ function SkyChartSvg({ stars }: SkyChartSvgProps) {
                     viewBox.height,
                 ].join(' ')}
                 role="img"
-                aria-label="Карта видимой полусферы"
+                aria-label="Интерактивная звёздная карта"
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
-                onPointerUp={finishPointerDrag}
-                onPointerCancel={finishPointerDrag}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerCancel}
             >
                 <defs>
                     <clipPath id={clipPathId}>
@@ -302,6 +425,27 @@ function SkyChartSvg({ stars }: SkyChartSvgProps) {
                         fill="#ffffff"
                     />
 
+                    {lines.map((line) => {
+                        const startStar = starsById.get(line.startStarId)
+                        const endStar = starsById.get(line.endStarId)
+
+                        if (!startStar || !endStar) {
+                            return null
+                        }
+
+                        return (
+                            <line
+                                key={line.id}
+                                x1={startStar.x}
+                                y1={startStar.y}
+                                x2={endStar.x}
+                                y2={endStar.y}
+                                className="sky-chart-constellation-line"
+                                vectorEffect="non-scaling-stroke"
+                            />
+                        )
+                    })}
+
                     {stars.map((star) => (
                         <circle
                             key={star.id}
@@ -311,6 +455,16 @@ function SkyChartSvg({ stars }: SkyChartSvgProps) {
                             fill="#000000"
                         />
                     ))}
+
+                    {selectedStar && (
+                        <circle
+                            cx={selectedStar.x}
+                            cy={selectedStar.y}
+                            r={Math.max(selectedStar.radius + 7, 10)}
+                            className="sky-chart-selected-star"
+                            vectorEffect="non-scaling-stroke"
+                        />
+                    )}
                 </g>
 
                 <circle

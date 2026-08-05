@@ -8,16 +8,43 @@ export type CatalogStar = {
     magnitude: number
 }
 
-export type SkyChartParameters = {
+export type SkyChartMode = (
+    | 'visible-hemisphere'
+    | 'equatorial-field'
+)
+
+export type VisibleHemisphereParameters = {
+    mode: 'visible-hemisphere'
     latitudeDeg: number
     siderealTimeHours: number
     limitingMagnitude: number
 }
 
+export type EquatorialFieldParameters = {
+    mode: 'equatorial-field'
+    centerRaHours: number
+    centerDecDeg: number
+    angularDiameterDeg: number
+    rotationDeg: number
+    limitingMagnitude: number
+}
+
+export type SkyChartParameters = (
+    | VisibleHemisphereParameters
+    | EquatorialFieldParameters
+)
+
 export type ProjectedStar = CatalogStar & {
-    altitudeDeg: number
-    azimuthDeg: number
     x: number
     y: number
     radius: number
+    angularDistanceDeg: number
+    altitudeDeg: number | null
+    azimuthDeg: number | null
+}
+
+export type SkyChartLine = {
+    id: string
+    startStarId: string
+    endStarId: string
 }

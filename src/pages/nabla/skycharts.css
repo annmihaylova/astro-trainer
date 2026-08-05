@@ -1,7 +1,7 @@
 .skychart-workspace {
     display: grid;
     overflow: hidden;
-    grid-template-columns: minmax(260px, 330px) minmax(0, 1fr);
+    grid-template-columns: minmax(280px, 350px) minmax(0, 1fr);
     border: 1px solid var(--border);
     border-radius: 28px;
     background: var(--surface);
@@ -13,15 +13,51 @@
 }
 
 .skychart-controls h3 {
-    margin: 0 0 28px;
+    margin: 0 0 20px;
     color: var(--text);
     font-size: 22px;
+}
+
+.skychart-mode-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 24px;
+    padding: 5px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.skychart-mode-button {
+    min-width: 0;
+    padding: 10px 8px;
+    color: var(--muted);
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 680;
+    cursor: pointer;
+    transition:
+        color 180ms ease,
+        background 180ms ease;
+}
+
+.skychart-mode-button:hover {
+    color: var(--text);
+}
+
+.skychart-mode-button--active {
+    color: #0a0c13;
+    background: linear-gradient(120deg, #ffffff, #c7baff);
 }
 
 .skychart-field {
     display: grid;
     gap: 9px;
-    margin-bottom: 18px;
+    margin-bottom: 16px;
 }
 
 .skychart-field span {
@@ -53,7 +89,7 @@
 .skychart-control-actions {
     display: grid;
     gap: 10px;
-    margin-top: 28px;
+    margin-top: 26px;
 }
 
 .skychart-control-actions .button {
@@ -72,6 +108,63 @@
     background: rgba(197, 184, 255, 0.08);
 }
 
+.skychart-drawing-panel {
+    display: grid;
+    gap: 14px;
+    margin-top: 28px;
+    padding: 17px;
+    border: 1px solid rgba(197, 184, 255, 0.2);
+    border-radius: 16px;
+    background: rgba(154, 124, 255, 0.06);
+}
+
+.skychart-drawing-panel > div:first-child {
+    display: grid;
+    gap: 5px;
+}
+
+.skychart-drawing-label {
+    color: var(--primary-light);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.skychart-drawing-panel strong {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.skychart-drawing-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.skychart-drawing-actions button {
+    padding: 9px 8px;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.035);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.skychart-drawing-actions button:hover:not(:disabled) {
+    border-color: rgba(197, 184, 255, 0.5);
+    background: rgba(197, 184, 255, 0.09);
+}
+
+.skychart-drawing-actions button:disabled {
+    opacity: 0.38;
+    cursor: default;
+}
+
 .skychart-current-values {
     display: grid;
     gap: 0;
@@ -84,7 +177,7 @@
     padding-block: 13px;
     align-items: center;
     justify-content: space-between;
-    gap: 20px;
+    gap: 18px;
     color: var(--muted);
     border-bottom: 1px solid var(--border);
     font-size: 12px;
@@ -93,6 +186,7 @@
 .skychart-current-values strong {
     color: var(--text);
     font-weight: 650;
+    text-align: right;
     white-space: nowrap;
 }
 
@@ -129,7 +223,7 @@
     box-shadow:
         0 24px 70px rgba(0, 0, 0, 0.35),
         0 0 0 1px rgba(255, 255, 255, 0.08);
-    cursor: zoom-in;
+    cursor: crosshair;
     touch-action: pan-y pinch-zoom;
     user-select: none;
 }
@@ -140,6 +234,20 @@
 
 .sky-chart-svg--zoomed:active {
     cursor: grabbing;
+}
+
+.sky-chart-constellation-line {
+    stroke: #7252c7;
+    stroke-width: 2.3;
+    stroke-linecap: round;
+    pointer-events: none;
+}
+
+.sky-chart-selected-star {
+    fill: none;
+    stroke: #7252c7;
+    stroke-width: 2.4;
+    pointer-events: none;
 }
 
 .sky-chart-zoom-controls {
@@ -185,11 +293,11 @@
 }
 
 .skychart-hint {
-    max-width: 680px;
+    max-width: 690px;
     margin: 20px 0 0;
     color: var(--muted);
     font-size: 12px;
-    line-height: 1.55;
+    line-height: 1.6;
     text-align: center;
 }
 
