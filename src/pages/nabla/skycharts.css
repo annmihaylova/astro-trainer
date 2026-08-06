@@ -332,10 +332,10 @@
 }
 
 .sky-chart-constellation-highlight {
-    stroke-width: 1.15;
+    stroke-width: 0.55;
     stroke-linejoin: round;
-    fill-opacity: 0.11;
-    stroke-opacity: 0.42;
+    fill-opacity: 0.045;
+    stroke-opacity: 0.24;
     pointer-events: none;
 }
 
@@ -358,6 +358,17 @@
 
 .sky-chart-constellation-line--correct {
     stroke: #1f9d55;
+}
+
+.sky-chart-constellation-line--extra {
+    stroke: #d94d4d;
+}
+
+.sky-chart-constellation-line--missing {
+    stroke: #d38b22;
+    stroke-width: 1.8;
+    stroke-dasharray: 8 7;
+    opacity: 0.82;
 }
 
 .sky-chart-selected-star {

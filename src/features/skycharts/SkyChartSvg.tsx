@@ -31,6 +31,8 @@ export type SkyChartSvgProps = {
     eraseMode?: boolean
     onLineErase?: (line: SkyChartLine) => void
     correctLineIds?: ReadonlySet<string>
+    extraLineIds?: ReadonlySet<string>
+    missingLines?: readonly SkyChartLine[]
     constellationHighlights?: readonly ProjectedConstellationHighlight[]
 }
 
@@ -173,6 +175,8 @@ function SkyChartSvg({
     eraseMode = false,
     onLineErase,
     correctLineIds,
+    extraLineIds,
+    missingLines = [],
     constellationHighlights = [],
 }: SkyChartSvgProps) {
     const svgRef = useRef<SVGSVGElement | null>(null)
@@ -553,6 +557,27 @@ function SkyChartSvg({
                         ))
                     })}
 
+                    {missingLines.map((line) => {
+                        const startStar = starsById.get(line.startStarId)
+                        const endStar = starsById.get(line.endStarId)
+
+                        if (!startStar || !endStar) {
+                            return null
+                        }
+
+                        return (
+                            <line
+                                key={`missing-${line.id}`}
+                                x1={startStar.x}
+                                y1={startStar.y}
+                                x2={endStar.x}
+                                y2={endStar.y}
+                                className="sky-chart-constellation-line sky-chart-constellation-line--missing"
+                                vectorEffect="non-scaling-stroke"
+                            />
+                        )
+                    })}
+
                     {lines.map((line) => {
                         const startStar = starsById.get(line.startStarId)
                         const endStar = starsById.get(line.endStarId)
@@ -565,6 +590,9 @@ function SkyChartSvg({
                             'sky-chart-constellation-line',
                             correctLineIds?.has(line.id)
                                 ? 'sky-chart-constellation-line--correct'
+                                : '',
+                            extraLineIds?.has(line.id)
+                                ? 'sky-chart-constellation-line--extra'
                                 : '',
                         ].filter(Boolean).join(' ')
 

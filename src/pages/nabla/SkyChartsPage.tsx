@@ -741,6 +741,9 @@ function SkyChartsPage() {
                                 <span>
                                     Лишних линий: {evaluation.extraLineCount}
                                 </span>
+                                <span>
+                                    Не дорисовано: {evaluation.missingLineCount}
+                                </span>
                             </div>
                         )}
                     </div>
@@ -827,6 +830,8 @@ function SkyChartsPage() {
                                 eraseMode={eraseMode}
                                 onLineErase={handleLineErase}
                                 correctLineIds={evaluation?.correctLineIds}
+                                extraLineIds={evaluation?.extraLineIds}
+                                missingLines={evaluation?.missingLines}
                                 constellationHighlights={constellationHighlights}
                             />
                             <p className="skychart-hint">
@@ -835,8 +840,9 @@ function SkyChartsPage() {
                                 от последней выбранной звезды. В режиме ластика клик по линии
                                 удаляет её. После проверки правильные созвездия подсвечиваются
                                 зелёным, неправильные — красным внутри настоящих границ IAU.
-                                Для Большой Медведицы
-                                засчитывается и ковш без дополнительных линий.
+                                Правильные линии становятся зелёными, лишние — красными,
+                                а недостающие показываются пунктиром. Для Большой Медведицы
+                                засчитывается обычный семизвёздный ковш без дополнительных линий.
                             </p>
                         </>
                     )}

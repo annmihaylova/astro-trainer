@@ -23,23 +23,25 @@ export type SkyChartEvaluation = {
     incorrectConstellationIds: ReadonlySet<string>
     correctLineIds: ReadonlySet<string>
     extraLineIds: ReadonlySet<string>
+    missingLines: readonly SkyChartLine[]
     checkedConstellationCount: number
     correctConstellationCount: number
     incorrectConstellationCount: number
     extraLineCount: number
+    missingLineCount: number
     scorePercent: number
     isPerfect: boolean
 }
 
-const BIG_DIPPER_KEYS = [
-    'ALP:UMA',
-    'BET:UMA',
-    'GAM:UMA',
-    'DEL:UMA',
-    'EPS:UMA',
-    'ZET:UMA',
-    'ETA:UMA',
-] as const
+const BIG_DIPPER_HIP_IDS = {
+    dubhe: 54061,
+    merak: 53910,
+    phecda: 58001,
+    megrez: 59774,
+    alioth: 62956,
+    mizar: 65378,
+    alkaid: 67301,
+} as const
 
 function clamp(value: number, minimum: number, maximum: number) {
     return Math.min(maximum, Math.max(minimum, value))
@@ -52,26 +54,12 @@ export function buildSkyChartLineId(
     return [firstStarId, secondStarId].sort().join('--')
 }
 
-function catalogDesignationKey(name: string | null) {
-    if (!name) {
-        return null
+function buildLine(firstStarId: string, secondStarId: string): SkyChartLine {
+    return {
+        id: buildSkyChartLineId(firstStarId, secondStarId),
+        startStarId: firstStarId,
+        endStarId: secondStarId,
     }
-
-    const match = name.trim().match(
-        /^(?:[0-9]{1,3})?\s*([A-Za-z]{2,3})\s*([0-9]?)\s*([A-Za-z]{3})$/,
-    )
-
-    if (!match) {
-        return null
-    }
-
-    const [, rawGreek, component, rawConstellation] = match
-
-    return [
-        rawGreek.toUpperCase(),
-        component,
-        rawConstellation.toUpperCase(),
-    ].join(':')
 }
 
 function buildVisibleConstellationLines(
@@ -96,14 +84,10 @@ function buildVisibleConstellationLines(
                 continue
             }
 
-            const id = buildSkyChartLineId(startStarId, endStarId)
+            const line = buildLine(startStarId, endStarId)
 
-            if (!referenceLines.has(id)) {
-                referenceLines.set(id, {
-                    id,
-                    startStarId,
-                    endStarId,
-                })
+            if (!referenceLines.has(line.id)) {
+                referenceLines.set(line.id, line)
             }
         }
     }
@@ -128,59 +112,123 @@ function buildVisibleConstellationStarIds(
     return [...constellationStarIds]
 }
 
-function buildBigDipperAlternativeLineIds(
+function buildBigDipperAlternativeLines(
     visibleStars: readonly ProjectedStar[],
 ) {
-    const starIdByKey = new Map<string, string>()
+    const starIdByHip = new Map<number, string>()
 
     for (const star of visibleStars) {
-        const key = catalogDesignationKey(star.name)
-
-        if (key) {
-            starIdByKey.set(key, star.id)
+        if (typeof star.hip === 'number') {
+            starIdByHip.set(star.hip, star.id)
         }
     }
 
-    const requiredIds = BIG_DIPPER_KEYS.map(
-        (key) => starIdByKey.get(key) ?? null,
-    )
+    const dubhe = starIdByHip.get(BIG_DIPPER_HIP_IDS.dubhe)
+    const merak = starIdByHip.get(BIG_DIPPER_HIP_IDS.merak)
+    const phecda = starIdByHip.get(BIG_DIPPER_HIP_IDS.phecda)
+    const megrez = starIdByHip.get(BIG_DIPPER_HIP_IDS.megrez)
+    const alioth = starIdByHip.get(BIG_DIPPER_HIP_IDS.alioth)
+    const mizar = starIdByHip.get(BIG_DIPPER_HIP_IDS.mizar)
+    const alkaid = starIdByHip.get(BIG_DIPPER_HIP_IDS.alkaid)
 
-    if (requiredIds.some((starId) => starId === null)) {
+    if (
+        !dubhe
+        || !merak
+        || !phecda
+        || !megrez
+        || !alioth
+        || !mizar
+        || !alkaid
+    ) {
         return null
     }
 
-    const [
-        dubhe,
-        merak,
-        phecda,
-        megrez,
-        alioth,
-        mizar,
-        alkaid,
-    ] = requiredIds as string[]
-
-    return new Set([
-        buildSkyChartLineId(dubhe, merak),
-        buildSkyChartLineId(merak, phecda),
-        buildSkyChartLineId(phecda, megrez),
-        buildSkyChartLineId(megrez, dubhe),
-        buildSkyChartLineId(megrez, alioth),
-        buildSkyChartLineId(alioth, mizar),
-        buildSkyChartLineId(mizar, alkaid),
-    ])
+    return [
+        buildLine(dubhe, merak),
+        buildLine(merak, phecda),
+        buildLine(phecda, megrez),
+        buildLine(megrez, dubhe),
+        buildLine(megrez, alioth),
+        buildLine(alioth, mizar),
+        buildLine(mizar, alkaid),
+    ]
 }
 
-function hasAllLineIds(
+function missingLinesFrom(
+    referenceLines: readonly SkyChartLine[],
     userLineIds: ReadonlySet<string>,
-    requiredLineIds: ReadonlySet<string>,
 ) {
-    for (const lineId of requiredLineIds) {
-        if (!userLineIds.has(lineId)) {
-            return false
+    return referenceLines.filter((line) => !userLineIds.has(line.id))
+}
+
+function completionRatio(
+    referenceLines: readonly SkyChartLine[],
+    missingLines: readonly SkyChartLine[],
+) {
+    if (referenceLines.length === 0) {
+        return 0
+    }
+
+    return (
+        referenceLines.length - missingLines.length
+    ) / referenceLines.length
+}
+
+function chooseReferenceVariant(
+    fullReferenceLines: readonly SkyChartLine[],
+    fullMissingLines: readonly SkyChartLine[],
+    alternativeLines: readonly SkyChartLine[] | null,
+    alternativeMissingLines: readonly SkyChartLine[],
+) {
+    if (!alternativeLines) {
+        return {
+            referenceLines: fullReferenceLines,
+            missingLines: fullMissingLines,
+            matchedByAlternative: false,
         }
     }
 
-    return true
+    const fullComplete = fullMissingLines.length === 0
+    const alternativeComplete = alternativeMissingLines.length === 0
+
+    if (alternativeComplete && !fullComplete) {
+        return {
+            referenceLines: alternativeLines,
+            missingLines: alternativeMissingLines,
+            matchedByAlternative: true,
+        }
+    }
+
+    if (fullComplete) {
+        return {
+            referenceLines: fullReferenceLines,
+            missingLines: fullMissingLines,
+            matchedByAlternative: false,
+        }
+    }
+
+    const fullCompletion = completionRatio(
+        fullReferenceLines,
+        fullMissingLines,
+    )
+    const alternativeCompletion = completionRatio(
+        alternativeLines,
+        alternativeMissingLines,
+    )
+
+    if (alternativeCompletion >= fullCompletion) {
+        return {
+            referenceLines: alternativeLines,
+            missingLines: alternativeMissingLines,
+            matchedByAlternative: false,
+        }
+    }
+
+    return {
+        referenceLines: fullReferenceLines,
+        missingLines: fullMissingLines,
+        matchedByAlternative: false,
+    }
 }
 
 export function evaluateSkyChart(
@@ -192,98 +240,103 @@ export function evaluateSkyChart(
     const userLineIds = new Set(userLines.map((line) => line.id))
     const correctConstellationIds = new Set<string>()
     const incorrectConstellationIds = new Set<string>()
-    const correctLineIds = new Set<string>()
-    const allVisibleReferenceLineIds = new Set<string>()
+    const validReferenceLineIds = new Set<string>()
     const evaluatedConstellations: EvaluatedConstellation[] = []
-    const bigDipperAlternativeLineIds = buildBigDipperAlternativeLineIds(
+    const missingLinesById = new Map<string, SkyChartLine>()
+    const bigDipperAlternativeLines = buildBigDipperAlternativeLines(
         visibleStars,
     )
 
     for (const constellation of constellations) {
-        const referenceLines = buildVisibleConstellationLines(
+        const fullReferenceLines = buildVisibleConstellationLines(
             constellation,
             visibleStarIds,
         )
 
-        if (referenceLines.length === 0) {
+        if (fullReferenceLines.length === 0) {
             continue
         }
 
-        const visibleConstellationStarIds = buildVisibleConstellationStarIds(
-            constellation,
-            visibleStarIds,
+        fullReferenceLines.forEach((line) => {
+            validReferenceLineIds.add(line.id)
+        })
+
+        const isUrsaMajor = constellation.iau.toUpperCase() === 'UMA'
+        const alternativeLines = isUrsaMajor
+            ? bigDipperAlternativeLines
+            : null
+
+        alternativeLines?.forEach((line) => {
+            validReferenceLineIds.add(line.id)
+        })
+
+        const fullMissingLines = missingLinesFrom(
+            fullReferenceLines,
+            userLineIds,
         )
-        referenceLines.forEach((line) => allVisibleReferenceLineIds.add(line.id))
-        const matchedReferenceLineIds = new Set<string>()
-        const missingLineIds = new Set<string>()
-
-        for (const line of referenceLines) {
-            if (userLineIds.has(line.id)) {
-                matchedReferenceLineIds.add(line.id)
-            } else {
-                missingLineIds.add(line.id)
-            }
-        }
-
-        let matchedByAlternative = false
-        let isCorrect = missingLineIds.size === 0
-
-        if (
-            !isCorrect
-            && constellation.iau.toUpperCase() === 'UMA'
-            && bigDipperAlternativeLineIds
-        ) {
-            matchedByAlternative = hasAllLineIds(
-                userLineIds,
-                bigDipperAlternativeLineIds,
-            )
-            isCorrect = matchedByAlternative
-
-            if (matchedByAlternative) {
-                bigDipperAlternativeLineIds.forEach((lineId) => {
-                    matchedReferenceLineIds.add(lineId)
-                    missingLineIds.delete(lineId)
-                })
-            }
-        }
+        const alternativeMissingLines = alternativeLines
+            ? missingLinesFrom(alternativeLines, userLineIds)
+            : []
+        const fullComplete = fullMissingLines.length === 0
+        const alternativeComplete = (
+            alternativeLines !== null
+            && alternativeMissingLines.length === 0
+        )
+        const isCorrect = fullComplete || alternativeComplete
+        const selectedVariant = chooseReferenceVariant(
+            fullReferenceLines,
+            fullMissingLines,
+            alternativeLines,
+            alternativeMissingLines,
+        )
+        const matchedLineIds = new Set(
+            selectedVariant.referenceLines
+                .filter((line) => userLineIds.has(line.id))
+                .map((line) => line.id),
+        )
+        const selectedMissingLineIds = new Set(
+            selectedVariant.missingLines.map((line) => line.id),
+        )
 
         if (isCorrect) {
             correctConstellationIds.add(constellation.iau)
-            matchedReferenceLineIds.forEach((lineId) => {
-                if (userLineIds.has(lineId)) {
-                    correctLineIds.add(lineId)
-                }
-            })
         } else {
             incorrectConstellationIds.add(constellation.iau)
+            selectedVariant.missingLines.forEach((line) => {
+                missingLinesById.set(line.id, line)
+            })
         }
 
         evaluatedConstellations.push({
             iau: constellation.iau,
             name: constellation.name,
-            visibleStarIds: visibleConstellationStarIds,
-            referenceLines,
-            correctLineIds: matchedReferenceLineIds,
-            missingLineIds,
+            visibleStarIds: buildVisibleConstellationStarIds(
+                constellation,
+                visibleStarIds,
+            ),
+            referenceLines: selectedVariant.referenceLines,
+            correctLineIds: matchedLineIds,
+            missingLineIds: selectedMissingLineIds,
             isCorrect,
-            matchedByAlternative,
+            matchedByAlternative: (
+                alternativeComplete
+                && !fullComplete
+            ) || selectedVariant.matchedByAlternative,
         })
     }
 
-    if (bigDipperAlternativeLineIds) {
-        bigDipperAlternativeLineIds.forEach((lineId) => {
-            allVisibleReferenceLineIds.add(lineId)
-        })
-    }
-
+    const correctLineIds = new Set<string>()
     const extraLineIds = new Set<string>()
 
     for (const line of userLines) {
-        if (!allVisibleReferenceLineIds.has(line.id)) {
+        if (validReferenceLineIds.has(line.id)) {
+            correctLineIds.add(line.id)
+        } else {
             extraLineIds.add(line.id)
         }
     }
 
+    const missingLines = [...missingLinesById.values()]
     const checkedConstellationCount = evaluatedConstellations.length
     const correctConstellationCount = correctConstellationIds.size
     const incorrectConstellationCount = incorrectConstellationIds.size
@@ -305,10 +358,12 @@ export function evaluateSkyChart(
         incorrectConstellationIds,
         correctLineIds,
         extraLineIds,
+        missingLines,
         checkedConstellationCount,
         correctConstellationCount,
         incorrectConstellationCount,
         extraLineCount: extraLineIds.size,
+        missingLineCount: missingLines.length,
         scorePercent,
         isPerfect,
     }
