@@ -7,9 +7,15 @@ import {
 } from 'react'
 import type { ChangeEvent } from 'react'
 import SkyChartSvg from '../../features/skycharts/SkyChartSvg'
+import {
+    loadConstellationBoundaries,
+    normalizeConstellationId,
+    projectEvaluatedConstellationBoundaries,
+} from '../../features/skycharts/constellationBoundaries'
 import type {
-    ConstellationHighlight,
-} from '../../features/skycharts/SkyChartSvg'
+    ConstellationBoundary,
+    ConstellationEvaluationStatus,
+} from '../../features/skycharts/constellationBoundaries'
 import { projectSkyChart } from '../../features/skycharts/astronomy'
 import {
     buildSkyChartLineId,
@@ -162,6 +168,10 @@ function SkyChartsPage() {
         useState<StellariumWesternReference | null>(null)
     )
     const [stellariumError, setStellariumError] = useState<string | null>(null)
+    const [constellationBoundaries, setConstellationBoundaries] = (
+        useState<readonly ConstellationBoundary[]>([])
+    )
+    const [boundariesError, setBoundariesError] = useState<string | null>(null)
     const [draftParameters, setDraftParameters] = (
         useState<SkyChartParameters>(DEFAULT_VISIBLE_PARAMETERS)
     )
@@ -251,6 +261,38 @@ function SkyChartsPage() {
         return () => abortController.abort()
     }, [])
 
+    useEffect(() => {
+        const abortController = new AbortController()
+
+        async function loadBoundaries() {
+            try {
+                const loadedBoundaries = await loadConstellationBoundaries(
+                    abortController.signal,
+                )
+
+                setConstellationBoundaries(loadedBoundaries)
+                setBoundariesError(null)
+            } catch (error) {
+                if (
+                    error instanceof DOMException
+                    && error.name === 'AbortError'
+                ) {
+                    return
+                }
+
+                setBoundariesError(
+                    error instanceof Error
+                        ? error.message
+                        : 'Не удалось загрузить границы созвездий IAU.',
+                )
+            }
+        }
+
+        void loadBoundaries()
+
+        return () => abortController.abort()
+    }, [])
+
     const boundStellariumReference = useMemo(
         () => (
             stellariumReference && catalog.length > 0
@@ -298,17 +340,35 @@ function SkyChartsPage() {
         [projectedStars, requiredAsterismStarIds],
     )
 
-    const constellationHighlights = useMemo<
-        readonly ConstellationHighlight[]
-    >(
-        () => evaluation?.constellations.map((constellation) => ({
-            id: constellation.iau,
-            starIds: constellation.visibleStarIds,
-            status: constellation.isCorrect
-                ? 'correct'
-                : 'incorrect',
-        })) ?? [],
-        [evaluation],
+    const constellationStatuses = useMemo<
+        ReadonlyMap<string, ConstellationEvaluationStatus>
+    >(() => {
+        const statuses = new Map<
+            string,
+            ConstellationEvaluationStatus
+        >()
+
+        for (const constellation of evaluation?.constellations ?? []) {
+            statuses.set(
+                normalizeConstellationId(constellation.iau),
+                constellation.isCorrect ? 'correct' : 'incorrect',
+            )
+        }
+
+        return statuses
+    }, [evaluation])
+
+    const constellationHighlights = useMemo(
+        () => projectEvaluatedConstellationBoundaries(
+            constellationBoundaries,
+            constellationStatuses,
+            chartParameters,
+        ),
+        [
+            chartParameters,
+            constellationBoundaries,
+            constellationStatuses,
+        ],
     )
 
     function resetDrawing() {
@@ -615,7 +675,9 @@ function SkyChartsPage() {
                             <input
                                 type="checkbox"
                                 checked={continuousDrawing}
-                                onChange={(event) => setContinuousDrawing(event.target.checked)}
+                                onChange={(event: ChangeEvent<HTMLInputElement>) => setContinuousDrawing(
+                                    event.target.checked,
+                                )}
                             />
                             <span>Непрерывная линия</span>
                         </label>
@@ -742,13 +804,17 @@ function SkyChartsPage() {
                 </aside>
 
                 <div className="skychart-preview">
-                    {catalogError || stellariumError ? (
+                    {catalogError || stellariumError || boundariesError ? (
                         <div className="skychart-message skychart-message--error">
-                            {catalogError ?? stellariumError}
+                            {catalogError ?? stellariumError ?? boundariesError}
                         </div>
-                    ) : catalog.length === 0 || !boundStellariumReference ? (
+                    ) : (
+                        catalog.length === 0
+                        || !boundStellariumReference
+                        || constellationBoundaries.length === 0
+                    ) ? (
                         <div className="skychart-message">
-                            Загружаем каталог и эталон Stellarium…
+                            Загружаем каталог, эталон и границы созвездий…
                         </div>
                     ) : (
                         <>
@@ -768,7 +834,8 @@ function SkyChartsPage() {
                                 если включена непрерывная линия, новая линия будет продолжаться
                                 от последней выбранной звезды. В режиме ластика клик по линии
                                 удаляет её. После проверки правильные созвездия подсвечиваются
-                                зелёным, неправильные — красным. Для Большой Медведицы
+                                зелёным, неправильные — красным внутри настоящих границ IAU.
+                                Для Большой Медведицы
                                 засчитывается и ковш без дополнительных линий.
                             </p>
                         </>

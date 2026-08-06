@@ -9,6 +9,9 @@ import type {
     PointerEvent as ReactPointerEvent,
 } from 'react'
 import type {
+    ProjectedConstellationHighlight,
+} from './constellationBoundaries'
+import type {
     ProjectedStar,
     SkyChartLine,
 } from './types'
@@ -18,13 +21,6 @@ const MIN_VIEWBOX_SIZE = 125
 const CLICK_MOVEMENT_LIMIT_PX = 6
 const STAR_HIT_RADIUS_PX = 10
 const LINE_HIT_RADIUS_PX = 12
-const HIGHLIGHT_PADDING = 18
-
-export type ConstellationHighlight = {
-    id: string
-    starIds: readonly string[]
-    status: 'correct' | 'incorrect'
-}
 
 export type SkyChartSvgProps = {
     stars: readonly ProjectedStar[]
@@ -35,7 +31,7 @@ export type SkyChartSvgProps = {
     eraseMode?: boolean
     onLineErase?: (line: SkyChartLine) => void
     correctLineIds?: ReadonlySet<string>
-    constellationHighlights?: readonly ConstellationHighlight[]
+    constellationHighlights?: readonly ProjectedConstellationHighlight[]
 }
 
 type ViewBox = {
@@ -166,159 +162,6 @@ function distanceToSegmentSquared(
         x: segmentStart.x + projection * deltaX,
         y: segmentStart.y + projection * deltaY,
     })
-}
-
-function crossProduct(origin: Point, first: Point, second: Point) {
-    return (
-        (first.x - origin.x) * (second.y - origin.y)
-        - (first.y - origin.y) * (second.x - origin.x)
-    )
-}
-
-function convexHull(points: readonly Point[]) {
-    if (points.length <= 1) {
-        return [...points]
-    }
-
-    const sortedPoints = [...points].sort((first, second) => (
-        first.x === second.x
-            ? first.y - second.y
-            : first.x - second.x
-    ))
-    const lowerHull: Point[] = []
-    const upperHull: Point[] = []
-
-    for (const point of sortedPoints) {
-        while (
-            lowerHull.length >= 2
-            && crossProduct(
-                lowerHull[lowerHull.length - 2],
-                lowerHull[lowerHull.length - 1],
-                point,
-            ) <= 0
-        ) {
-            lowerHull.pop()
-        }
-
-        lowerHull.push(point)
-    }
-
-    for (let pointIndex = sortedPoints.length - 1; pointIndex >= 0; pointIndex -= 1) {
-        const point = sortedPoints[pointIndex]
-
-        while (
-            upperHull.length >= 2
-            && crossProduct(
-                upperHull[upperHull.length - 2],
-                upperHull[upperHull.length - 1],
-                point,
-            ) <= 0
-        ) {
-            upperHull.pop()
-        }
-
-        upperHull.push(point)
-    }
-
-    lowerHull.pop()
-    upperHull.pop()
-
-    return [...lowerHull, ...upperHull]
-}
-
-function buildPolygonPath(points: readonly Point[]) {
-    if (points.length === 0) {
-        return null
-    }
-
-    return [
-        `M ${points[0].x} ${points[0].y}`,
-        ...points.slice(1).map((point) => `L ${point.x} ${point.y}`),
-        'Z',
-    ].join(' ')
-}
-
-function buildExpandedHullPath(points: readonly Point[]) {
-    const hull = convexHull(points)
-
-    if (hull.length === 0) {
-        return null
-    }
-
-    if (hull.length === 1) {
-        return null
-    }
-
-    if (hull.length === 2) {
-        return null
-    }
-
-    const centroid = hull.reduce(
-        (accumulator, point) => ({
-            x: accumulator.x + point.x,
-            y: accumulator.y + point.y,
-        }),
-        { x: 0, y: 0 },
-    )
-    centroid.x /= hull.length
-    centroid.y /= hull.length
-
-    const expandedHull = hull.map((point) => {
-        const deltaX = point.x - centroid.x
-        const deltaY = point.y - centroid.y
-        const length = Math.hypot(deltaX, deltaY)
-
-        if (length <= 1e-6) {
-            return point
-        }
-
-        return {
-            x: point.x + deltaX / length * HIGHLIGHT_PADDING,
-            y: point.y + deltaY / length * HIGHLIGHT_PADDING,
-        }
-    })
-
-    return buildPolygonPath(expandedHull)
-}
-
-function buildCapsulePath(firstPoint: Point, secondPoint: Point) {
-    const deltaX = secondPoint.x - firstPoint.x
-    const deltaY = secondPoint.y - firstPoint.y
-    const length = Math.hypot(deltaX, deltaY)
-
-    if (length <= 1e-6) {
-        return null
-    }
-
-    const unitX = deltaX / length
-    const unitY = deltaY / length
-    const perpendicularX = -unitY
-    const perpendicularY = unitX
-    const firstLeft = {
-        x: firstPoint.x + perpendicularX * HIGHLIGHT_PADDING,
-        y: firstPoint.y + perpendicularY * HIGHLIGHT_PADDING,
-    }
-    const firstRight = {
-        x: firstPoint.x - perpendicularX * HIGHLIGHT_PADDING,
-        y: firstPoint.y - perpendicularY * HIGHLIGHT_PADDING,
-    }
-    const secondLeft = {
-        x: secondPoint.x + perpendicularX * HIGHLIGHT_PADDING,
-        y: secondPoint.y + perpendicularY * HIGHLIGHT_PADDING,
-    }
-    const secondRight = {
-        x: secondPoint.x - perpendicularX * HIGHLIGHT_PADDING,
-        y: secondPoint.y - perpendicularY * HIGHLIGHT_PADDING,
-    }
-
-    return [
-        `M ${firstLeft.x} ${firstLeft.y}`,
-        `L ${secondLeft.x} ${secondLeft.y}`,
-        `A ${HIGHLIGHT_PADDING} ${HIGHLIGHT_PADDING} 0 0 1 ${secondRight.x} ${secondRight.y}`,
-        `L ${firstRight.x} ${firstRight.y}`,
-        `A ${HIGHLIGHT_PADDING} ${HIGHLIGHT_PADDING} 0 0 1 ${firstLeft.x} ${firstLeft.y}`,
-        'Z',
-    ].join(' ')
 }
 
 function SkyChartSvg({
@@ -690,20 +533,7 @@ function SkyChartSvg({
                         r="472"
                         fill="#ffffff"
                     />
-
-                    {constellationHighlights.map((highlight) => {
-                        const highlightStars = highlight.starIds
-                            .map((starId) => starsById.get(starId) ?? null)
-                            .filter((star): star is ProjectedStar => Boolean(star))
-                        const highlightPoints = highlightStars.map((star) => ({
-                            x: star.x,
-                            y: star.y,
-                        }))
-
-                        if (highlightPoints.length === 0) {
-                            return null
-                        }
-
+                    {constellationHighlights.flatMap((highlight) => {
                         const className = [
                             'sky-chart-constellation-highlight',
                             highlight.status === 'correct'
@@ -711,50 +541,16 @@ function SkyChartSvg({
                                 : 'sky-chart-constellation-highlight--incorrect',
                         ].join(' ')
 
-                        if (highlightPoints.length === 1) {
-                            return (
-                                <circle
-                                    key={`highlight-${highlight.id}`}
-                                    cx={highlightPoints[0].x}
-                                    cy={highlightPoints[0].y}
-                                    r={HIGHLIGHT_PADDING + 8}
-                                    className={className}
-                                />
-                            )
-                        }
-
-                        if (highlightPoints.length === 2) {
-                            const path = buildCapsulePath(
-                                highlightPoints[0],
-                                highlightPoints[1],
-                            )
-
-                            if (!path) {
-                                return null
-                            }
-
-                            return (
-                                <path
-                                    key={`highlight-${highlight.id}`}
-                                    d={path}
-                                    className={className}
-                                />
-                            )
-                        }
-
-                        const path = buildExpandedHullPath(highlightPoints)
-
-                        if (!path) {
-                            return null
-                        }
-
-                        return (
+                        return highlight.paths.map((path, pathIndex) => (
                             <path
-                                key={`highlight-${highlight.id}`}
+                                key={`highlight-${highlight.id}-${pathIndex}`}
                                 d={path}
                                 className={className}
+                                fillRule="evenodd"
+                                clipRule="evenodd"
+                                vectorEffect="non-scaling-stroke"
                             />
-                        )
+                        ))
                     })}
 
                     {lines.map((line) => {

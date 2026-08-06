@@ -230,7 +230,7 @@ export function evaluateSkyChart(
 
         if (
             !isCorrect
-            && constellation.iau === 'UMA'
+            && constellation.iau.toUpperCase() === 'UMA'
             && bigDipperAlternativeLineIds
         ) {
             matchedByAlternative = hasAllLineIds(
