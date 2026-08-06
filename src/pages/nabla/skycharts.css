@@ -155,6 +155,18 @@
     cursor: pointer;
 }
 
+.skychart-drawing-actions .skychart-check-button {
+    grid-column: 1 / -1;
+    color: #0a0c13;
+    border-color: transparent;
+    background: linear-gradient(120deg, #ffffff, #c7baff);
+}
+
+.skychart-drawing-actions .skychart-check-button:hover:not(:disabled) {
+    border-color: transparent;
+    background: linear-gradient(120deg, #ffffff, #d6cdff);
+}
+
 .skychart-drawing-actions button:hover:not(:disabled) {
     border-color: rgba(197, 184, 255, 0.5);
     background: rgba(197, 184, 255, 0.09);
@@ -163,6 +175,34 @@
 .skychart-drawing-actions button:disabled {
     opacity: 0.38;
     cursor: default;
+}
+
+.skychart-evaluation {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px 12px;
+    padding-top: 14px;
+    color: var(--muted);
+    border-top: 1px solid rgba(197, 184, 255, 0.2);
+    font-size: 11px;
+}
+
+.skychart-evaluation strong {
+    grid-column: 1 / -1;
+    color: var(--text);
+    font-size: 13px;
+}
+
+.skychart-evaluation span:first-of-type {
+    grid-column: 1 / -1;
+}
+
+.skychart-evaluation--perfect {
+    color: #9fe3b7;
+}
+
+.skychart-evaluation--perfect strong {
+    color: #9fe3b7;
 }
 
 .skychart-current-values {
@@ -241,6 +281,21 @@
     stroke-width: 2.3;
     stroke-linecap: round;
     pointer-events: none;
+}
+
+.sky-chart-constellation-line--correct {
+    stroke: #1f9d55;
+}
+
+.sky-chart-constellation-line--extra {
+    stroke: #d94d4d;
+}
+
+.sky-chart-constellation-line--missing {
+    stroke: #d38b22;
+    stroke-width: 2;
+    stroke-dasharray: 8 7;
+    opacity: 0.85;
 }
 
 .sky-chart-selected-star {

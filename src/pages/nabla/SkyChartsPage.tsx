@@ -9,6 +9,10 @@ import type { ChangeEvent } from 'react'
 import SkyChartSvg from '../../features/skycharts/SkyChartSvg'
 import { projectSkyChart } from '../../features/skycharts/astronomy'
 import {
+    buildSkyChartLineId,
+    evaluateSkyChart,
+} from '../../features/skycharts/evaluateSkyChart'
+import {
     buildNamedCatalogStarIds,
     chooseSelectableStars,
 } from '../../features/skycharts/selectableStars'
@@ -19,6 +23,9 @@ import {
 import type {
     StellariumWesternReference,
 } from '../../features/skycharts/stellariumReference'
+import type {
+    SkyChartEvaluation,
+} from '../../features/skycharts/evaluateSkyChart'
 import type {
     CatalogStar,
     EquatorialFieldParameters,
@@ -145,10 +152,6 @@ function inputNumber(event: ChangeEvent<HTMLInputElement>) {
     return Number(event.target.value)
 }
 
-function buildLineId(firstStarId: string, secondStarId: string) {
-    return [firstStarId, secondStarId].sort().join('--')
-}
-
 function SkyChartsPage() {
     const [catalog, setCatalog] = useState<readonly CatalogStar[]>([])
     const [catalogError, setCatalogError] = useState<string | null>(null)
@@ -164,6 +167,9 @@ function SkyChartsPage() {
     )
     const [lines, setLines] = useState<readonly SkyChartLine[]>([])
     const [selectedStarId, setSelectedStarId] = useState<string | null>(null)
+    const [evaluation, setEvaluation] = (
+        useState<SkyChartEvaluation | null>(null)
+    )
 
     useEffect(() => {
         const abortController = new AbortController()
@@ -290,6 +296,7 @@ function SkyChartsPage() {
     function resetDrawing() {
         setLines([])
         setSelectedStarId(null)
+        setEvaluation(null)
     }
 
     function changeMode(mode: SkyChartMode) {
@@ -324,6 +331,8 @@ function SkyChartsPage() {
     }
 
     function handleStarSelect(star: ProjectedStar) {
+        setEvaluation(null)
+
         if (!selectedStarId) {
             setSelectedStarId(star.id)
             return
@@ -334,7 +343,10 @@ function SkyChartsPage() {
             return
         }
 
-        const lineId = buildLineId(selectedStarId, star.id)
+        const lineId = buildSkyChartLineId(
+            selectedStarId,
+            star.id,
+        )
 
         setLines((currentLines) => {
             if (currentLines.some((line) => line.id === lineId)) {
@@ -354,7 +366,21 @@ function SkyChartsPage() {
     }
 
     function undoLastLine() {
+        setEvaluation(null)
         setLines((currentLines) => currentLines.slice(0, -1))
+        setSelectedStarId(null)
+    }
+
+    function checkDrawing() {
+        if (!boundStellariumReference) {
+            return
+        }
+
+        setEvaluation(evaluateSkyChart(
+            projectedStars,
+            boundStellariumReference.constellations,
+            lines,
+        ))
         setSelectedStarId(null)
     }
 
@@ -551,7 +577,41 @@ function SkyChartsPage() {
                             >
                                 Очистить
                             </button>
+                            <button
+                                type="button"
+                                className="skychart-check-button"
+                                onClick={checkDrawing}
+                                disabled={!boundStellariumReference}
+                            >
+                                Проверить
+                            </button>
                         </div>
+
+                        {evaluation && (
+                            <div className={[
+                                'skychart-evaluation',
+                                evaluation.isPerfect
+                                    ? 'skychart-evaluation--perfect'
+                                    : '',
+                            ].filter(Boolean).join(' ')}>
+                                <strong>
+                                    {evaluation.isPerfect
+                                        ? 'Все линии совпали'
+                                        : `Оценка: ${evaluation.scorePercent}%`}
+                                </strong>
+                                <span>
+                                    Правильных: {evaluation.correctLineCount}
+                                    {' / '}
+                                    {evaluation.referenceLineCount}
+                                </span>
+                                <span>
+                                    Лишних: {evaluation.extraLineCount}
+                                </span>
+                                <span>
+                                    Пропущено: {evaluation.missingLineCount}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="skychart-current-values">
@@ -629,12 +689,17 @@ function SkyChartsPage() {
                                 lines={lines}
                                 selectedStarId={selectedStarId}
                                 onStarSelect={handleStarSelect}
+                                correctLineIds={evaluation?.correctLineIds}
+                                extraLineIds={evaluation?.extraLineIds}
+                                missingLines={evaluation?.missingLines}
                             />
                             <p className="skychart-hint">
                                 Нажмите на две звезды, чтобы соединить их прямой линией.
                                 Все видимые вершины линий западной культуры Stellarium
                                 кликабельны. Повторный клик по первой звезде отменяет выбор.
                                 Колёсико мыши меняет масштаб, перетаскивание двигает карту.
+                                После проверки зелёным показаны правильные линии,
+                                красным — лишние, пунктиром — пропущенные.
                             </p>
                         </>
                     )}

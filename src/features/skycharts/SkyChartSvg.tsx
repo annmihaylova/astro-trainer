@@ -24,6 +24,9 @@ export type SkyChartSvgProps = {
     lines: readonly SkyChartLine[]
     selectedStarId: string | null
     onStarSelect: (star: ProjectedStar) => void
+    correctLineIds?: ReadonlySet<string>
+    extraLineIds?: ReadonlySet<string>
+    missingLines?: readonly SkyChartLine[]
 }
 
 type ViewBox = {
@@ -122,6 +125,9 @@ function SkyChartSvg({
     lines,
     selectedStarId,
     onStarSelect,
+    correctLineIds,
+    extraLineIds,
+    missingLines = [],
 }: SkyChartSvgProps) {
     const svgRef = useRef<SVGSVGElement | null>(null)
     const pointerStateRef = useRef<PointerState | null>(null)
@@ -427,7 +433,7 @@ function SkyChartSvg({
                         fill="#ffffff"
                     />
 
-                    {lines.map((line) => {
+                    {missingLines.map((line) => {
                         const startStar = starsById.get(line.startStarId)
                         const endStar = starsById.get(line.endStarId)
 
@@ -437,12 +443,43 @@ function SkyChartSvg({
 
                         return (
                             <line
+                                key={`missing-${line.id}`}
+                                x1={startStar.x}
+                                y1={startStar.y}
+                                x2={endStar.x}
+                                y2={endStar.y}
+                                className="sky-chart-constellation-line sky-chart-constellation-line--missing"
+                                vectorEffect="non-scaling-stroke"
+                            />
+                        )
+                    })}
+
+                    {lines.map((line) => {
+                        const startStar = starsById.get(line.startStarId)
+                        const endStar = starsById.get(line.endStarId)
+
+                        if (!startStar || !endStar) {
+                            return null
+                        }
+
+                        const lineClassName = [
+                            'sky-chart-constellation-line',
+                            correctLineIds?.has(line.id)
+                                ? 'sky-chart-constellation-line--correct'
+                                : '',
+                            extraLineIds?.has(line.id)
+                                ? 'sky-chart-constellation-line--extra'
+                                : '',
+                        ].filter(Boolean).join(' ')
+
+                        return (
+                            <line
                                 key={line.id}
                                 x1={startStar.x}
                                 y1={startStar.y}
                                 x2={endStar.x}
                                 y2={endStar.y}
-                                className="sky-chart-constellation-line"
+                                className={lineClassName}
                                 vectorEffect="non-scaling-stroke"
                             />
                         )
