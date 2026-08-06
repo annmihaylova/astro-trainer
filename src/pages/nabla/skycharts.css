@@ -137,6 +137,56 @@
     font-weight: 650;
 }
 
+.skychart-tool-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding: 4px;
+    border: 1px solid rgba(197, 184, 255, 0.2);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.skychart-tool-button {
+    min-width: 0;
+    padding: 10px 8px;
+    color: var(--muted);
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 650;
+    cursor: pointer;
+    transition:
+        color 180ms ease,
+        background 180ms ease;
+}
+
+.skychart-tool-button:hover {
+    color: var(--text);
+}
+
+.skychart-tool-button--active {
+    color: #0a0c13;
+    background: linear-gradient(120deg, #ffffff, #c7baff);
+}
+
+.skychart-chain-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.skychart-chain-toggle input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+}
+
 .skychart-drawing-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -193,7 +243,8 @@
     font-size: 13px;
 }
 
-.skychart-evaluation span:first-of-type {
+.skychart-evaluation span:first-of-type,
+.skychart-evaluation span:last-of-type {
     grid-column: 1 / -1;
 }
 
@@ -276,6 +327,24 @@
     cursor: grabbing;
 }
 
+.sky-chart-svg--erase-mode {
+    cursor: cell;
+}
+
+.sky-chart-constellation-highlight {
+    stroke: none;
+    opacity: 0.16;
+    pointer-events: none;
+}
+
+.sky-chart-constellation-highlight--correct {
+    fill: #36b36b;
+}
+
+.sky-chart-constellation-highlight--incorrect {
+    fill: #d95a5a;
+}
+
 .sky-chart-constellation-line {
     stroke: #7252c7;
     stroke-width: 2.3;
@@ -285,17 +354,6 @@
 
 .sky-chart-constellation-line--correct {
     stroke: #1f9d55;
-}
-
-.sky-chart-constellation-line--extra {
-    stroke: #d94d4d;
-}
-
-.sky-chart-constellation-line--missing {
-    stroke: #d38b22;
-    stroke-width: 2;
-    stroke-dasharray: 8 7;
-    opacity: 0.85;
 }
 
 .sky-chart-selected-star {

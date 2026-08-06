@@ -170,6 +170,8 @@ function SkyChartsPage() {
     const [evaluation, setEvaluation] = (
         useState<SkyChartEvaluation | null>(null)
     )
+    const [eraseMode, setEraseMode] = useState(false)
+    const [continuousDrawing, setContinuousDrawing] = useState(true)
 
     useEffect(() => {
         const abortController = new AbortController()
@@ -293,6 +295,17 @@ function SkyChartsPage() {
         [projectedStars, requiredAsterismStarIds],
     )
 
+    const constellationHighlights = useMemo(
+        () => evaluation?.constellations.map((constellation) => ({
+            id: constellation.iau,
+            starIds: constellation.visibleStarIds,
+            status: constellation.isCorrect
+                ? 'correct'
+                : 'incorrect',
+        })) ?? [],
+        [evaluation],
+    )
+
     function resetDrawing() {
         setLines([])
         setSelectedStarId(null)
@@ -362,12 +375,23 @@ function SkyChartsPage() {
                 },
             ]
         })
-        setSelectedStarId(null)
+        setSelectedStarId(continuousDrawing ? star.id : null)
+    }
+
+    function handleLineErase(line: SkyChartLine) {
+        setEvaluation(null)
+        setLines((currentLines) => currentLines.filter(
+            (currentLine) => currentLine.id !== line.id,
+        ))
     }
 
     function undoLastLine() {
         setEvaluation(null)
         setLines((currentLines) => currentLines.slice(0, -1))
+        setSelectedStarId(null)
+    }
+
+    function finishCurrentChain() {
         setSelectedStarId(null)
     }
 
@@ -382,6 +406,7 @@ function SkyChartsPage() {
             lines,
         ))
         setSelectedStarId(null)
+        setEraseMode(false)
     }
 
     return (
@@ -553,11 +578,42 @@ function SkyChartsPage() {
                                 Линии созвездий
                             </span>
                             <strong>
-                                {selectedStarId
-                                    ? 'Выберите вторую звезду'
-                                    : 'Выберите первую звезду'}
+                                {eraseMode
+                                    ? 'Нажмите на линию, чтобы стереть её'
+                                    : selectedStarId
+                                        ? 'Выберите следующую звезду'
+                                        : 'Выберите первую звезду'}
                             </strong>
                         </div>
+
+                        <div className="skychart-tool-switch">
+                            <button
+                                type="button"
+                                className={eraseMode ? 'skychart-tool-button' : 'skychart-tool-button skychart-tool-button--active'}
+                                onClick={() => setEraseMode(false)}
+                            >
+                                Рисование
+                            </button>
+                            <button
+                                type="button"
+                                className={eraseMode ? 'skychart-tool-button skychart-tool-button--active' : 'skychart-tool-button'}
+                                onClick={() => {
+                                    setEraseMode(true)
+                                    setSelectedStarId(null)
+                                }}
+                            >
+                                Ластик
+                            </button>
+                        </div>
+
+                        <label className="skychart-chain-toggle">
+                            <input
+                                type="checkbox"
+                                checked={continuousDrawing}
+                                onChange={(event) => setContinuousDrawing(event.target.checked)}
+                            />
+                            <span>Непрерывная линия</span>
+                        </label>
 
                         <div className="skychart-drawing-actions">
                             <button
@@ -569,13 +625,20 @@ function SkyChartsPage() {
                             </button>
                             <button
                                 type="button"
+                                onClick={finishCurrentChain}
+                                disabled={!selectedStarId}
+                            >
+                                Завершить линию
+                            </button>
+                            <button
+                                type="button"
                                 onClick={resetDrawing}
                                 disabled={
                                     lines.length === 0
                                     && !selectedStarId
                                 }
                             >
-                                Очистить
+                                Очистить всё
                             </button>
                             <button
                                 type="button"
@@ -596,19 +659,20 @@ function SkyChartsPage() {
                             ].filter(Boolean).join(' ')}>
                                 <strong>
                                     {evaluation.isPerfect
-                                        ? 'Все линии совпали'
+                                        ? 'Все видимые созвездия распознаны'
                                         : `Оценка: ${evaluation.scorePercent}%`}
                                 </strong>
                                 <span>
-                                    Правильных: {evaluation.correctLineCount}
+                                    Правильных созвездий: {' '}
+                                    {evaluation.correctConstellationCount}
                                     {' / '}
-                                    {evaluation.referenceLineCount}
+                                    {evaluation.checkedConstellationCount}
                                 </span>
                                 <span>
-                                    Лишних: {evaluation.extraLineCount}
+                                    Неправильных: {evaluation.incorrectConstellationCount}
                                 </span>
                                 <span>
-                                    Пропущено: {evaluation.missingLineCount}
+                                    Лишних линий: {evaluation.extraLineCount}
                                 </span>
                             </div>
                         )}
@@ -689,17 +753,18 @@ function SkyChartsPage() {
                                 lines={lines}
                                 selectedStarId={selectedStarId}
                                 onStarSelect={handleStarSelect}
+                                eraseMode={eraseMode}
+                                onLineErase={handleLineErase}
                                 correctLineIds={evaluation?.correctLineIds}
-                                extraLineIds={evaluation?.extraLineIds}
-                                missingLines={evaluation?.missingLines}
+                                constellationHighlights={constellationHighlights}
                             />
                             <p className="skychart-hint">
-                                Нажмите на две звезды, чтобы соединить их прямой линией.
-                                Все видимые вершины линий западной культуры Stellarium
-                                кликабельны. Повторный клик по первой звезде отменяет выбор.
-                                Колёсико мыши меняет масштаб, перетаскивание двигает карту.
-                                После проверки зелёным показаны правильные линии,
-                                красным — лишние, пунктиром — пропущенные.
+                                В режиме рисования можно просто тыкать по звёздам подряд —
+                                если включена непрерывная линия, новая линия будет продолжаться
+                                от последней выбранной звезды. В режиме ластика клик по линии
+                                удаляет её. После проверки правильные созвездия подсвечиваются
+                                зелёным, неправильные — красным. Для Большой Медведицы
+                                засчитывается и ковш без дополнительных линий.
                             </p>
                         </>
                     )}

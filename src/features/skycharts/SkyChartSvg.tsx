@@ -17,6 +17,14 @@ const VIEWPORT_SIZE = 1000
 const MIN_VIEWBOX_SIZE = 125
 const CLICK_MOVEMENT_LIMIT_PX = 6
 const STAR_HIT_RADIUS_PX = 10
+const LINE_HIT_RADIUS_PX = 12
+const HIGHLIGHT_PADDING = 18
+
+type ConstellationHighlight = {
+    id: string
+    starIds: readonly string[]
+    status: 'correct' | 'incorrect'
+}
 
 export type SkyChartSvgProps = {
     stars: readonly ProjectedStar[]
@@ -24,9 +32,10 @@ export type SkyChartSvgProps = {
     lines: readonly SkyChartLine[]
     selectedStarId: string | null
     onStarSelect: (star: ProjectedStar) => void
+    eraseMode?: boolean
+    onLineErase?: (line: SkyChartLine) => void
     correctLineIds?: ReadonlySet<string>
-    extraLineIds?: ReadonlySet<string>
-    missingLines?: readonly SkyChartLine[]
+    constellationHighlights?: readonly ConstellationHighlight[]
 }
 
 type ViewBox = {
@@ -42,6 +51,11 @@ type PointerState = {
     startClientY: number
     startViewBox: ViewBox
     moved: boolean
+}
+
+type Point = {
+    x: number
+    y: number
 }
 
 const INITIAL_VIEWBOX: ViewBox = {
@@ -119,15 +133,204 @@ function clientPointToChartPoint(
     }
 }
 
+function distanceSquared(first: Point, second: Point) {
+    return (
+        (first.x - second.x) ** 2
+        + (first.y - second.y) ** 2
+    )
+}
+
+function distanceToSegmentSquared(
+    point: Point,
+    segmentStart: Point,
+    segmentEnd: Point,
+) {
+    const deltaX = segmentEnd.x - segmentStart.x
+    const deltaY = segmentEnd.y - segmentStart.y
+    const segmentLengthSquared = deltaX ** 2 + deltaY ** 2
+
+    if (segmentLengthSquared <= 1e-12) {
+        return distanceSquared(point, segmentStart)
+    }
+
+    const projection = clamp(
+        (
+            (point.x - segmentStart.x) * deltaX
+            + (point.y - segmentStart.y) * deltaY
+        ) / segmentLengthSquared,
+        0,
+        1,
+    )
+
+    return distanceSquared(point, {
+        x: segmentStart.x + projection * deltaX,
+        y: segmentStart.y + projection * deltaY,
+    })
+}
+
+function crossProduct(origin: Point, first: Point, second: Point) {
+    return (
+        (first.x - origin.x) * (second.y - origin.y)
+        - (first.y - origin.y) * (second.x - origin.x)
+    )
+}
+
+function convexHull(points: readonly Point[]) {
+    if (points.length <= 1) {
+        return [...points]
+    }
+
+    const sortedPoints = [...points].sort((first, second) => (
+        first.x === second.x
+            ? first.y - second.y
+            : first.x - second.x
+    ))
+    const lowerHull: Point[] = []
+    const upperHull: Point[] = []
+
+    for (const point of sortedPoints) {
+        while (
+            lowerHull.length >= 2
+            && crossProduct(
+                lowerHull[lowerHull.length - 2],
+                lowerHull[lowerHull.length - 1],
+                point,
+            ) <= 0
+        ) {
+            lowerHull.pop()
+        }
+
+        lowerHull.push(point)
+    }
+
+    for (let pointIndex = sortedPoints.length - 1; pointIndex >= 0; pointIndex -= 1) {
+        const point = sortedPoints[pointIndex]
+
+        while (
+            upperHull.length >= 2
+            && crossProduct(
+                upperHull[upperHull.length - 2],
+                upperHull[upperHull.length - 1],
+                point,
+            ) <= 0
+        ) {
+            upperHull.pop()
+        }
+
+        upperHull.push(point)
+    }
+
+    lowerHull.pop()
+    upperHull.pop()
+
+    return [...lowerHull, ...upperHull]
+}
+
+function buildPolygonPath(points: readonly Point[]) {
+    if (points.length === 0) {
+        return null
+    }
+
+    return [
+        `M ${points[0].x} ${points[0].y}`,
+        ...points.slice(1).map((point) => `L ${point.x} ${point.y}`),
+        'Z',
+    ].join(' ')
+}
+
+function buildExpandedHullPath(points: readonly Point[]) {
+    const hull = convexHull(points)
+
+    if (hull.length === 0) {
+        return null
+    }
+
+    if (hull.length === 1) {
+        return null
+    }
+
+    if (hull.length === 2) {
+        return null
+    }
+
+    const centroid = hull.reduce(
+        (accumulator, point) => ({
+            x: accumulator.x + point.x,
+            y: accumulator.y + point.y,
+        }),
+        { x: 0, y: 0 },
+    )
+    centroid.x /= hull.length
+    centroid.y /= hull.length
+
+    const expandedHull = hull.map((point) => {
+        const deltaX = point.x - centroid.x
+        const deltaY = point.y - centroid.y
+        const length = Math.hypot(deltaX, deltaY)
+
+        if (length <= 1e-6) {
+            return point
+        }
+
+        return {
+            x: point.x + deltaX / length * HIGHLIGHT_PADDING,
+            y: point.y + deltaY / length * HIGHLIGHT_PADDING,
+        }
+    })
+
+    return buildPolygonPath(expandedHull)
+}
+
+function buildCapsulePath(firstPoint: Point, secondPoint: Point) {
+    const deltaX = secondPoint.x - firstPoint.x
+    const deltaY = secondPoint.y - firstPoint.y
+    const length = Math.hypot(deltaX, deltaY)
+
+    if (length <= 1e-6) {
+        return null
+    }
+
+    const unitX = deltaX / length
+    const unitY = deltaY / length
+    const perpendicularX = -unitY
+    const perpendicularY = unitX
+    const firstLeft = {
+        x: firstPoint.x + perpendicularX * HIGHLIGHT_PADDING,
+        y: firstPoint.y + perpendicularY * HIGHLIGHT_PADDING,
+    }
+    const firstRight = {
+        x: firstPoint.x - perpendicularX * HIGHLIGHT_PADDING,
+        y: firstPoint.y - perpendicularY * HIGHLIGHT_PADDING,
+    }
+    const secondLeft = {
+        x: secondPoint.x + perpendicularX * HIGHLIGHT_PADDING,
+        y: secondPoint.y + perpendicularY * HIGHLIGHT_PADDING,
+    }
+    const secondRight = {
+        x: secondPoint.x - perpendicularX * HIGHLIGHT_PADDING,
+        y: secondPoint.y - perpendicularY * HIGHLIGHT_PADDING,
+    }
+
+    return [
+        `M ${firstLeft.x} ${firstLeft.y}`,
+        `L ${secondLeft.x} ${secondLeft.y}`,
+        `A ${HIGHLIGHT_PADDING} ${HIGHLIGHT_PADDING} 0 0 1 ${secondRight.x} ${secondRight.y}`,
+        `L ${firstRight.x} ${firstRight.y}`,
+        `A ${HIGHLIGHT_PADDING} ${HIGHLIGHT_PADDING} 0 0 1 ${firstLeft.x} ${firstLeft.y}`,
+        'Z',
+    ].join(' ')
+}
+
 function SkyChartSvg({
     stars,
     selectableStars,
     lines,
     selectedStarId,
     onStarSelect,
+    eraseMode = false,
+    onLineErase,
     correctLineIds,
-    extraLineIds,
-    missingLines = [],
+    constellationHighlights = [],
 }: SkyChartSvgProps) {
     const svgRef = useRef<SVGSVGElement | null>(null)
     const pointerStateRef = useRef<PointerState | null>(null)
@@ -234,25 +437,75 @@ function SkyChartSvg({
         let nearestDistanceSquared = Number.POSITIVE_INFINITY
 
         for (const star of selectableStars) {
-            const deltaX = pointer.x - star.x
-            const deltaY = pointer.y - star.y
-            const distanceSquared = deltaX ** 2 + deltaY ** 2
+            const distanceToStarSquared = distanceSquared(pointer, star)
             const allowedDistance = Math.max(
                 hitRadius,
                 star.radius + hitRadius * 0.35,
             )
 
             if (
-                distanceSquared <= allowedDistance ** 2
-                && distanceSquared < nearestDistanceSquared
+                distanceToStarSquared <= allowedDistance ** 2
+                && distanceToStarSquared < nearestDistanceSquared
             ) {
                 nearestStar = star
-                nearestDistanceSquared = distanceSquared
+                nearestDistanceSquared = distanceToStarSquared
             }
         }
 
         if (nearestStar) {
             onStarSelect(nearestStar)
+        }
+    }
+
+    function eraseNearestLine(
+        event: ReactPointerEvent<SVGSVGElement>,
+    ) {
+        if (!onLineErase || lines.length === 0) {
+            return
+        }
+
+        const bounds = event.currentTarget.getBoundingClientRect()
+        const currentViewBox = viewBoxRef.current
+        const pointer = clientPointToChartPoint(
+            event.clientX,
+            event.clientY,
+            bounds,
+            currentViewBox,
+        )
+        const hitRadius = (
+            LINE_HIT_RADIUS_PX
+            * currentViewBox.width
+            / bounds.width
+        )
+
+        let nearestLine: SkyChartLine | null = null
+        let nearestDistanceSquared = Number.POSITIVE_INFINITY
+
+        for (const line of lines) {
+            const startStar = starsById.get(line.startStarId)
+            const endStar = starsById.get(line.endStarId)
+
+            if (!startStar || !endStar) {
+                continue
+            }
+
+            const distanceToLineSquared = distanceToSegmentSquared(
+                pointer,
+                startStar,
+                endStar,
+            )
+
+            if (
+                distanceToLineSquared <= hitRadius ** 2
+                && distanceToLineSquared < nearestDistanceSquared
+            ) {
+                nearestLine = line
+                nearestDistanceSquared = distanceToLineSquared
+            }
+        }
+
+        if (nearestLine) {
+            onLineErase(nearestLine)
         }
     }
 
@@ -338,7 +591,11 @@ function SkyChartSvg({
         }
 
         if (!pointerState.moved) {
-            selectNearestStar(event)
+            if (eraseMode) {
+                eraseNearestLine(event)
+            } else {
+                selectNearestStar(event)
+            }
         }
 
         pointerStateRef.current = null
@@ -397,6 +654,7 @@ function SkyChartSvg({
                 className={[
                     'sky-chart-svg',
                     isZoomed ? 'sky-chart-svg--zoomed' : '',
+                    eraseMode ? 'sky-chart-svg--erase-mode' : '',
                 ].filter(Boolean).join(' ')}
                 viewBox={[
                     viewBox.x,
@@ -433,23 +691,68 @@ function SkyChartSvg({
                         fill="#ffffff"
                     />
 
-                    {missingLines.map((line) => {
-                        const startStar = starsById.get(line.startStarId)
-                        const endStar = starsById.get(line.endStarId)
+                    {constellationHighlights.map((highlight) => {
+                        const highlightStars = highlight.starIds
+                            .map((starId) => starsById.get(starId) ?? null)
+                            .filter((star): star is ProjectedStar => Boolean(star))
+                        const highlightPoints = highlightStars.map((star) => ({
+                            x: star.x,
+                            y: star.y,
+                        }))
 
-                        if (!startStar || !endStar) {
+                        if (highlightPoints.length === 0) {
+                            return null
+                        }
+
+                        const className = [
+                            'sky-chart-constellation-highlight',
+                            highlight.status === 'correct'
+                                ? 'sky-chart-constellation-highlight--correct'
+                                : 'sky-chart-constellation-highlight--incorrect',
+                        ].join(' ')
+
+                        if (highlightPoints.length === 1) {
+                            return (
+                                <circle
+                                    key={`highlight-${highlight.id}`}
+                                    cx={highlightPoints[0].x}
+                                    cy={highlightPoints[0].y}
+                                    r={HIGHLIGHT_PADDING + 8}
+                                    className={className}
+                                />
+                            )
+                        }
+
+                        if (highlightPoints.length === 2) {
+                            const path = buildCapsulePath(
+                                highlightPoints[0],
+                                highlightPoints[1],
+                            )
+
+                            if (!path) {
+                                return null
+                            }
+
+                            return (
+                                <path
+                                    key={`highlight-${highlight.id}`}
+                                    d={path}
+                                    className={className}
+                                />
+                            )
+                        }
+
+                        const path = buildExpandedHullPath(highlightPoints)
+
+                        if (!path) {
                             return null
                         }
 
                         return (
-                            <line
-                                key={`missing-${line.id}`}
-                                x1={startStar.x}
-                                y1={startStar.y}
-                                x2={endStar.x}
-                                y2={endStar.y}
-                                className="sky-chart-constellation-line sky-chart-constellation-line--missing"
-                                vectorEffect="non-scaling-stroke"
+                            <path
+                                key={`highlight-${highlight.id}`}
+                                d={path}
+                                className={className}
                             />
                         )
                     })}
@@ -466,9 +769,6 @@ function SkyChartSvg({
                             'sky-chart-constellation-line',
                             correctLineIds?.has(line.id)
                                 ? 'sky-chart-constellation-line--correct'
-                                : '',
-                            extraLineIds?.has(line.id)
-                                ? 'sky-chart-constellation-line--extra'
                                 : '',
                         ].filter(Boolean).join(' ')
 
