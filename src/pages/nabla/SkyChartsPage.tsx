@@ -7,6 +7,9 @@ import {
 } from 'react'
 import type { ChangeEvent } from 'react'
 import SkyChartSvg from '../../features/skycharts/SkyChartSvg'
+import type {
+    ConstellationHighlight,
+} from '../../features/skycharts/SkyChartSvg'
 import { projectSkyChart } from '../../features/skycharts/astronomy'
 import {
     buildSkyChartLineId,
@@ -295,7 +298,9 @@ function SkyChartsPage() {
         [projectedStars, requiredAsterismStarIds],
     )
 
-    const constellationHighlights = useMemo(
+    const constellationHighlights = useMemo<
+        readonly ConstellationHighlight[]
+    >(
         () => evaluation?.constellations.map((constellation) => ({
             id: constellation.iau,
             starIds: constellation.visibleStarIds,

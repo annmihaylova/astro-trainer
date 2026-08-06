@@ -20,7 +20,7 @@ const STAR_HIT_RADIUS_PX = 10
 const LINE_HIT_RADIUS_PX = 12
 const HIGHLIGHT_PADDING = 18
 
-type ConstellationHighlight = {
+export type ConstellationHighlight = {
     id: string
     starIds: readonly string[]
     status: 'correct' | 'incorrect'
