@@ -23,6 +23,7 @@ import TheoryPage from './pages/nabla/TheoryPage'
 import SkyChartsPage from './pages/nabla/SkyChartsPage'
 import ProfilePage from './pages/ProfilePage'
 
+
 function App() {
     return (
         <Routes>
@@ -112,7 +113,6 @@ function App() {
                     />
                 </Route>
             </Route>
-
 
             <Route
                 path="*"
