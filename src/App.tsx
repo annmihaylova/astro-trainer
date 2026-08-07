@@ -21,7 +21,11 @@ import StarsPage from './pages/nabla/StarsPage'
 import MessierPage from './pages/nabla/MessierPage'
 import TheoryPage from './pages/nabla/TheoryPage'
 import SkyChartsPage from './pages/nabla/SkyChartsPage'
+import SkyChartsLayout from './pages/nabla/SkyChartsLayout'
+import ConstellationRecognitionPage from './pages/nabla/ConstellationRecognitionPage'
+import MessierSkyChartPage from './pages/nabla/MessierSkyChartPage'
 import ProfilePage from './pages/ProfilePage'
+
 
 function App() {
     return (
@@ -108,11 +112,35 @@ function App() {
 
                     <Route
                         path="skycharts"
-                        element={<SkyChartsPage />}
-                    />
+                        element={<SkyChartsLayout />}
+                    >
+                        <Route
+                            index
+                            element={
+                                <Navigate
+                                    replace
+                                    to="hemisphere"
+                                />
+                            }
+                        />
+
+                        <Route
+                            path="hemisphere"
+                            element={<SkyChartsPage />}
+                        />
+
+                        <Route
+                            path="constellations"
+                            element={<ConstellationRecognitionPage />}
+                        />
+
+                        <Route
+                            path="messier"
+                            element={<MessierSkyChartPage />}
+                        />
+                    </Route>
                 </Route>
             </Route>
-
 
             <Route
                 path="*"

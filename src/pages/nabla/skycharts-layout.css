@@ -1,0 +1,32 @@
+.skycharts-mode-layout {
+    display: grid;
+    gap: 24px;
+}
+
+.skycharts-mode-navigation {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.skycharts-mode-navigation-link {
+    padding: 9px 14px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.025);
+    font-size: 13px;
+    font-weight: 650;
+    text-decoration: none;
+}
+
+.skycharts-mode-navigation-link:hover {
+    color: var(--text);
+    border-color: rgba(197, 184, 255, 0.45);
+}
+
+.skycharts-mode-navigation-link--active {
+    color: #080b13;
+    border-color: transparent;
+    background: #c7baff;
+}
