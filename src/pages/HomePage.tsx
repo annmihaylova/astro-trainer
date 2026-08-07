@@ -12,15 +12,15 @@ const trainingSections = [
         topics: [
             {
                 title: 'Астрономический дивертисмент',
-                path: '/theory',
+                path: '/theory/divertissement',
             },
             {
-                title: 'Краткие конспекты сложных тем',
-                path: '/theory',
+                title: 'Решения старых квалификаций',
+                path: '/theory/qualifiers',
             },
             {
-                title: 'Подборки по темам',
-                path: '/theory',
+                title: 'Конспекты по темам',
+                path: '/theory/notes',
             },
         ],
         theme: 'green',
@@ -32,12 +32,12 @@ const trainingSections = [
         path: '/practice',
         topics: [
             {
-                title: 'Краткий справочник по Python',
-                path: '/practice',
+                title: 'Python-шпаргалка',
+                path: '/practice/python',
             },
             {
                 title: 'Решения практических туров предыдущих годов',
-                path: '/practice',
+                path: '/practice/archive',
             },
         ],
         theme: 'orange',
@@ -75,11 +75,11 @@ const trainingSections = [
         topics: [
             {
                 title: 'Основные формулы',
-                path: '/blitz',
+                path: '/blitz/formulas',
             },
             {
-                title: 'Теоретическая часть',
-                path: '/blitz',
+                title: 'Матаппарат',
+                path: '/blitz/math',
             },
         ],
         theme: 'blue',
