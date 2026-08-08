@@ -9,9 +9,10 @@ import {
 import type { ChangeEvent } from 'react'
 import { stars as starDeck } from '../../data/stars'
 import SkyChartSvg from '../../features/skycharts/SkyChartSvg'
-import type {
-    SkyChartMarker,
-} from '../../features/skycharts/SkyChartSvg'
+import {
+    buildSkyChartAnswerMarkers,
+} from '../../features/skycharts/answerLayers'
+import SkyChartStarTaskPanel from '../../features/skycharts/SkyChartStarTaskPanel'
 import {
     loadConstellationBoundaries,
     normalizeConstellationId,
@@ -519,12 +520,6 @@ function SkyChartsPage() {
         [],
     )
 
-    const designationOptions = useMemo(
-        () => [...new Set(starDeck.map((star) => star.designation))]
-            .sort((first, second) => first.localeCompare(second, 'ru')),
-        [],
-    )
-
     const namedCatalogStarIds = useMemo(
         () => buildNamedCatalogStarIds(chartCatalog),
         [chartCatalog],
@@ -594,8 +589,6 @@ function SkyChartsPage() {
             ? asterismAnswer.lines
             : []
     )
-    const shownLines = activeTask?.kind === 'asterisms' ? lines : []
-
     const constellationStatuses = useMemo<
         ReadonlyMap<string, ConstellationEvaluationStatus>
     >(() => {
@@ -949,8 +942,16 @@ function SkyChartsPage() {
         }
 
         const isAbsent = activeAnswer.absentStarIds.includes(starId)
+        const markerForStar = activeAnswer.markers.find(
+            (marker) => marker.selectedStarId === starId,
+        )
         const nextAnswer: StarsAnswer = {
             ...activeAnswer,
+            markers: isAbsent
+                ? activeAnswer.markers
+                : activeAnswer.markers.filter(
+                    (marker) => marker.selectedStarId !== starId,
+                ),
             absentStarIds: isAbsent
                 ? activeAnswer.absentStarIds.filter(
                     (currentId) => currentId !== starId,
@@ -959,6 +960,14 @@ function SkyChartsPage() {
         }
 
         setAnswer(activeTask.id, nextAnswer)
+
+        if (
+            !isAbsent
+            && markerForStar?.id === editingStarMarkerId
+        ) {
+            setEditingStarMarkerId(null)
+            setSelectedStarId(null)
+        }
     }
 
     function toggleMessierAbsent(messierNumber: number) {
@@ -1005,6 +1014,16 @@ function SkyChartsPage() {
             return
         }
 
+        if (
+            patch.selectedStarId
+            && activeAnswer.markers.some((marker) => (
+                marker.id !== editingStarMarkerId
+                && marker.selectedStarId === patch.selectedStarId
+            ))
+        ) {
+            return
+        }
+
         const nextAnswer: StarsAnswer = {
             ...activeAnswer,
             markers: activeAnswer.markers.map((marker) => (
@@ -1012,6 +1031,11 @@ function SkyChartsPage() {
                     ? { ...marker, ...patch }
                     : marker
             )),
+            absentStarIds: patch.selectedStarId
+                ? activeAnswer.absentStarIds.filter(
+                    (starId) => starId !== patch.selectedStarId,
+                )
+                : activeAnswer.absentStarIds,
         }
 
         setAnswer(activeTask.id, nextAnswer)
@@ -1039,6 +1063,11 @@ function SkyChartsPage() {
         setSelectedStarId(null)
     }
 
+    function finishEditingStarMarker() {
+        setEditingStarMarkerId(null)
+        setSelectedStarId(null)
+    }
+
     function updateOrientation(
         patch: Partial<OrientationAnswer>,
     ) {
@@ -1056,78 +1085,19 @@ function SkyChartsPage() {
         })
     }
 
-    const editingStarMarker = (
-        activeAnswer?.kind === 'stars' && editingStarMarkerId
-            ? activeAnswer.markers.find(
-                (marker) => marker.id === editingStarMarkerId,
-            ) ?? null
-            : null
-    )
-
-    const answerMarkers = useMemo<SkyChartMarker[]>(() => {
-        if (!activeTask || !activeAnswer) {
-            return []
-        }
-
-        if (activeAnswer.kind === 'reference-points') {
-            return activeAnswer.markers.map((marker) => ({
-                id: marker.id,
-                x: marker.point.x,
-                y: marker.point.y,
-                label: REFERENCE_POINT_LABELS[marker.targetId],
-                shape: 'cross',
-            }))
-        }
-
-        if (activeAnswer.kind === 'boundary-crossings') {
-            return activeAnswer.markers.map((marker) => ({
-                id: marker.id,
-                x: marker.point.x,
-                y: marker.point.y,
-                label: BOUNDARY_CROSSING_LABELS[marker.targetId],
-                shape: 'dot',
-            }))
-        }
-
-        if (activeAnswer.kind === 'messier') {
-            return activeAnswer.markers.map((marker) => ({
-                id: marker.id,
-                x: marker.point.x,
-                y: marker.point.y,
-                label: `M${marker.messierNumber}`,
-                shape: 'triangle',
-            }))
-        }
-
-        if (activeAnswer.kind === 'stars') {
-            return activeAnswer.markers.flatMap((marker) => {
-                const projectedStar = projectedStarsById.get(
-                    marker.catalogStarId,
-                )
-
-                if (!projectedStar) {
-                    return []
-                }
-
-                const selectedDeckStar = starDeckById.get(
-                    marker.selectedStarId,
-                )
-
-                return [{
-                    id: marker.id,
-                    x: projectedStar.x,
-                    y: projectedStar.y,
-                    label: selectedDeckStar?.name ?? '?',
-                    shape: 'cross' as const,
-                }]
+    const answerMarkers = useMemo(() => (
+        session && activeTask
+            ? buildSkyChartAnswerMarkers({
+                session,
+                activeTask,
+                projectedStarsById,
+                starDeckById,
             })
-        }
-
-        return []
-    }, [
-        activeAnswer,
+            : []
+    ), [
         activeTask,
         projectedStarsById,
+        session,
         starDeckById,
     ])
 
@@ -1254,125 +1224,20 @@ function SkyChartsPage() {
             && activeAnswer.kind === 'stars'
         ) {
             return (
-                <div className="skychart-task-panel">
-                    <strong>
-                        Нажмите на звезду на карте, затем выберите её имя и обозначение Байера
-                    </strong>
-
-                    <div className="skychart-star-task-list">
-                        {activeTask.starIds.map((starId) => {
-                            const deckStar = starDeckById.get(starId)
-                            const absent = activeAnswer.absentStarIds.includes(
-                                starId,
-                            )
-
-                            if (!deckStar) {
-                                return null
-                            }
-
-                            return (
-                                <label
-                                    className="skychart-star-list-item"
-                                    key={starId}
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={absent}
-                                        onChange={() => toggleStarAbsent(starId)}
-                                    />
-                                    <span>{deckStar.name}</span>
-                                    <span>не видно</span>
-                                </label>
-                            )
-                        })}
-                    </div>
-
-                    {activeAnswer.markers.length > 0 && (
-                        <div className="skychart-marker-selector">
-                            {activeAnswer.markers.map((marker, index) => {
-                                const selectedDeckStar = starDeckById.get(
-                                    marker.selectedStarId,
-                                )
-
-                                return (
-                                    <button
-                                        type="button"
-                                        key={marker.id}
-                                        className={
-                                            marker.id === editingStarMarkerId
-                                                ? 'skychart-marker-chip skychart-marker-chip--active'
-                                                : 'skychart-marker-chip'
-                                        }
-                                        onClick={() => {
-                                            setEditingStarMarkerId(marker.id)
-                                            setSelectedStarId(
-                                                marker.catalogStarId,
-                                            )
-                                        }}
-                                    >
-                                        {index + 1}. {' '}
-                                        {selectedDeckStar?.name ?? 'без имени'}
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    )}
-
-                    {editingStarMarker && (
-                        <div className="skychart-star-editor">
-                            <label>
-                                <span>Название звезды</span>
-                                <select
-                                    value={editingStarMarker.selectedStarId}
-                                    onChange={(event) => updateEditingStarMarker({
-                                        selectedStarId: event.target.value,
-                                    })}
-                                >
-                                    <option value="">Выберите</option>
-                                    {activeTask.starIds.map((starId) => {
-                                        const deckStar = starDeckById.get(starId)
-                                        return deckStar ? (
-                                            <option
-                                                key={starId}
-                                                value={starId}
-                                            >
-                                                {deckStar.name}
-                                            </option>
-                                        ) : null
-                                    })}
-                                </select>
-                            </label>
-
-                            <label>
-                                <span>Обозначение Байера</span>
-                                <select
-                                    value={editingStarMarker.selectedDesignation}
-                                    onChange={(event) => updateEditingStarMarker({
-                                        selectedDesignation: event.target.value,
-                                    })}
-                                >
-                                    <option value="">Выберите</option>
-                                    {designationOptions.map((designation) => (
-                                        <option
-                                            key={designation}
-                                            value={designation}
-                                        >
-                                            {designation}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-
-                            <button
-                                type="button"
-                                className="skychart-delete-marker-button"
-                                onClick={deleteEditingStarMarker}
-                            >
-                                Удалить эту отметку
-                            </button>
-                        </div>
-                    )}
-                </div>
+                <SkyChartStarTaskPanel
+                    task={activeTask}
+                    answer={activeAnswer}
+                    starDeckById={starDeckById}
+                    editingMarkerId={editingStarMarkerId}
+                    onEditMarker={(marker) => {
+                        setEditingStarMarkerId(marker.id)
+                        setSelectedStarId(marker.catalogStarId)
+                    }}
+                    onToggleAbsent={toggleStarAbsent}
+                    onUpdateMarker={updateEditingStarMarker}
+                    onDeleteMarker={deleteEditingStarMarker}
+                    onFinishEditing={finishEditingStarMarker}
+                />
             )
         }
 
@@ -1845,7 +1710,10 @@ function SkyChartsPage() {
                             <SkyChartSvg
                                 stars={projectedStars}
                                 selectableStars={selectableStars}
-                                lines={shownLines}
+                                lines={lines}
+                                linesActive={
+                                    activeTask?.kind === 'asterisms'
+                                }
                                 selectedStarId={selectedStarId}
                                 onStarSelect={handleStarSelect}
                                 starSelectionEnabled={starSelectionEnabled}
@@ -1879,11 +1747,11 @@ function SkyChartsPage() {
                                 }
                             />
                             <p className="skychart-hint">
-                                Переключайте задания слева. Ответы каждого задания
-                                сохраняются отдельно и не исчезают при переключении.
-                                Точки и объекты ставятся обычным кликом по карте,
-                                звёзды привязываются к ближайшему кликабельному маркеру,
-                                а в задании на астеризмы работает прежнее рисование линий.
+                                Переключайте задания слева. Всё уже нанесённое остаётся
+                                на общей карте: активный слой показывается полностью,
+                                остальные — полупрозрачно. Точки и объекты ставятся
+                                обычным кликом, звёзды привязываются к ближайшей
+                                кликабельной звезде, а астеризмы рисуются линиями.
                             </p>
                         </>
                     )}

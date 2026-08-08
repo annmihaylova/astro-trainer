@@ -30,14 +30,17 @@ export type SkyChartMarker = {
     id: string
     x: number
     y: number
-    label: string
+    label?: string
+    secondaryLabel?: string
     shape: SkyChartMarkerShape
+    active?: boolean
 }
 
 export type SkyChartSvgProps = {
     stars: readonly ProjectedStar[]
     selectableStars: readonly ProjectedStar[]
     lines: readonly SkyChartLine[]
+    linesActive?: boolean
     selectedStarId: string | null
     onStarSelect: (star: ProjectedStar) => void
     starSelectionEnabled?: boolean
@@ -193,6 +196,7 @@ function SkyChartSvg({
     stars,
     selectableStars,
     lines,
+    linesActive = true,
     selectedStarId,
     onStarSelect,
     starSelectionEnabled = true,
@@ -647,6 +651,9 @@ function SkyChartSvg({
 
                         const lineClassName = [
                             'sky-chart-constellation-line',
+                            !linesActive
+                                ? 'sky-chart-constellation-line--inactive'
+                                : '',
                             correctLineIds?.has(line.id)
                                 ? 'sky-chart-constellation-line--correct'
                                 : '',
@@ -691,7 +698,12 @@ function SkyChartSvg({
                     {markers.map((marker) => (
                         <g
                             key={marker.id}
-                            className="sky-chart-answer-marker"
+                            className={[
+                                'sky-chart-answer-marker',
+                                marker.active === false
+                                    ? 'sky-chart-answer-marker--inactive'
+                                    : '',
+                            ].filter(Boolean).join(' ')}
                             transform={`translate(${marker.x} ${marker.y})`}
                         >
                             {marker.shape === 'cross' && (
@@ -727,13 +739,25 @@ function SkyChartSvg({
                                 />
                             )}
 
-                            <text
-                                x="13"
-                                y="-11"
-                                className="sky-chart-answer-marker-label"
-                            >
-                                {marker.label}
-                            </text>
+                            {marker.label && (
+                                <text
+                                    x="13"
+                                    y="-11"
+                                    className="sky-chart-answer-marker-label"
+                                >
+                                    {marker.label}
+                                </text>
+                            )}
+
+                            {marker.secondaryLabel && (
+                                <text
+                                    x="13"
+                                    y="9"
+                                    className="sky-chart-answer-marker-secondary-label"
+                                >
+                                    {marker.secondaryLabel}
+                                </text>
+                            )}
                         </g>
                     ))}
                 </g>
