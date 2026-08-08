@@ -228,7 +228,8 @@
     font-weight: 650;
 }
 
-.skychart-star-editor select {
+.skychart-star-editor select,
+.skychart-star-editor input {
     width: 100%;
     padding: 9px 10px;
     color: var(--text);
@@ -289,4 +290,12 @@
     .skychart-target-row {
         grid-template-columns: 1fr;
     }
+}
+
+.sky-chart-answer-marker {
+    transition: opacity 160ms ease;
+}
+
+.sky-chart-answer-marker--inactive {
+    opacity: 0.28;
 }

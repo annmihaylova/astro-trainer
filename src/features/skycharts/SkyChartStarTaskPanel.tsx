@@ -5,7 +5,6 @@ import type {
 import {
     BAYER_GREEK_LETTERS,
     buildSimpleBayerDesignation,
-    IAU_CONSTELLATION_ABBREVIATIONS,
     parseSimpleBayerDesignation,
 } from './bayer'
 import type {
@@ -138,29 +137,28 @@ function SkyChartStarTaskPanel({
 
                         <label>
                             <span>Созвездие</span>
-                            <select
+                            <input
+                                type="text"
+                                maxLength={3}
+                                placeholder="Ori"
+                                autoComplete="off"
+                                spellCheck={false}
                                 value={editingBayer.constellation}
                                 disabled={!editingMarker.selectedStarId}
-                                onChange={(event: ChangeEvent<HTMLSelectElement>) => onUpdateMarker({
-                                    selectedDesignation:
-                                        buildSimpleBayerDesignation(
-                                            editingBayer.greekLetter,
-                                            event.target.value,
-                                        ),
-                                })}
-                            >
-                                <option value="">—</option>
-                                {IAU_CONSTELLATION_ABBREVIATIONS.map(
-                                    (constellation) => (
-                                        <option
-                                            key={constellation}
-                                            value={constellation}
-                                        >
-                                            {constellation}
-                                        </option>
-                                    ),
-                                )}
-                            </select>
+                                onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                                    const constellation = event.target.value
+                                        .replace(/[^A-Za-z]/gu, '')
+                                        .slice(0, 3)
+
+                                    onUpdateMarker({
+                                        selectedDesignation:
+                                            buildSimpleBayerDesignation(
+                                                editingBayer.greekLetter,
+                                                constellation,
+                                            ),
+                                    })
+                                }}
+                            />
                         </label>
                     </div>
 

@@ -119,7 +119,7 @@ export const IAU_CONSTELLATION_ABBREVIATIONS = [
 
 
 const GREEK_PATTERN = /[αβγδεζηθικλμνξοπρστυφχψω]/u
-const CONSTELLATION_PATTERN = /\b([A-Za-z]{3})\b/u
+
 const INDEX_PATTERN = /[0-9⁰¹²³⁴⁵⁶⁷⁸⁹]/gu
 
 
@@ -127,7 +127,6 @@ export type SimpleBayerDesignation = {
     greekLetter: string
     constellation: string
 }
-
 
 export function parseSimpleBayerDesignation(
     value: string,
@@ -137,12 +136,17 @@ export function parseSimpleBayerDesignation(
         .replace(/\s+/gu, ' ')
         .trim()
 
+    const greekLetter = normalized.match(GREEK_PATTERN)?.[0] ?? ''
+    const constellation = normalized
+        .replace(GREEK_PATTERN, '')
+        .replace(/[^A-Za-z]/gu, '')
+        .slice(0, 3)
+
     return {
-        greekLetter: normalized.match(GREEK_PATTERN)?.[0] ?? '',
-        constellation: normalized.match(CONSTELLATION_PATTERN)?.[1] ?? '',
+        greekLetter,
+        constellation,
     }
 }
-
 
 export function buildSimpleBayerDesignation(
     greekLetter: string,

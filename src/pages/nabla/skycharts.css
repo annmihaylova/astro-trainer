@@ -356,6 +356,10 @@
     pointer-events: none;
 }
 
+.sky-chart-constellation-line--inactive {
+    opacity: 0.28;
+}
+
 .sky-chart-constellation-line--correct {
     stroke: #1f9d55;
 }
