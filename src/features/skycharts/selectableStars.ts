@@ -31,7 +31,6 @@ const GREEK_TO_BSC: Readonly<Record<string, string>> = {
     ω: 'OME',
 }
 
-
 const BSC_GREEK_CODES = new Set(Object.values(GREEK_TO_BSC))
 
 const SUPERSCRIPT_DIGITS: Readonly<Record<string, string>> = {
@@ -93,9 +92,6 @@ function catalogDesignationKey(name: string | null) {
         return null
     }
 
-    // В JSON поле Bright Star Catalogue уже обрезано по краям,
-    // поэтому разбираем его по структуре, а не по фиксированным
-    // позициям исходного текстового каталога.
     const match = name.trim().match(
         /^(?:[0-9]{1,3})?\s*([A-Za-z]{2,3})\s*([0-9]?)\s*([A-Za-z]{3})$/,
     )
@@ -138,25 +134,39 @@ function targetSelectableCount(visibleStarCount: number) {
     )
 }
 
-export function buildNamedCatalogStarIds(
+export function buildDeckStarCatalogIdMap(
     catalog: readonly CatalogStar[],
 ) {
-    const deckKeys = new Set(
-        namedStarDeck.flatMap((star) => (
-            deckDesignationKeys(star.designation)
-        )),
-    )
-    const namedCatalogStarIds = new Set<string>()
+    const catalogIdByDesignationKey = new Map<string, string>()
 
-    for (const star of catalog) {
-        const key = catalogDesignationKey(star.name)
+    for (const catalogStar of catalog) {
+        const key = catalogDesignationKey(catalogStar.name)
 
-        if (key && deckKeys.has(key)) {
-            namedCatalogStarIds.add(star.id)
+        if (key && !catalogIdByDesignationKey.has(key)) {
+            catalogIdByDesignationKey.set(key, catalogStar.id)
         }
     }
 
-    return namedCatalogStarIds
+    const catalogIdByDeckStarId = new Map<string, string>()
+
+    for (const deckStar of namedStarDeck) {
+        for (const key of deckDesignationKeys(deckStar.designation)) {
+            const catalogStarId = catalogIdByDesignationKey.get(key)
+
+            if (catalogStarId) {
+                catalogIdByDeckStarId.set(deckStar.id, catalogStarId)
+                break
+            }
+        }
+    }
+
+    return catalogIdByDeckStarId
+}
+
+export function buildNamedCatalogStarIds(
+    catalog: readonly CatalogStar[],
+) {
+    return new Set(buildDeckStarCatalogIdMap(catalog).values())
 }
 
 export type SelectableStarOptions = {
@@ -183,17 +193,11 @@ export function chooseSelectableStars(
         selectedStars.push(star)
     }
 
-    // Все видимые вершины официальных линий западной культуры
-    // Stellarium добавляются без каких-либо ограничений по расстоянию.
     visibleStars
         .filter((star) => requiredAsterismStarIds.has(star.id))
         .sort((first, second) => first.magnitude - second.magnitude)
         .forEach(addStar)
 
-    // Все именованные звёзды из существующей колоды тоже должны
-    // оставаться кликабельными. Даже тесные пары не отбрасываем:
-    // выбор обработчик делает по ближайшей звезде, а при необходимости
-    // пользователь может увеличить карту.
     visibleStars
         .filter((star) => options.namedStarIds.has(star.id))
         .sort((first, second) => first.magnitude - second.magnitude)
@@ -208,9 +212,6 @@ export function chooseSelectableStars(
         && star.magnitude <= EXTRA_STAR_LIMITING_MAGNITUDE
     ))
 
-    // Дополнительные точки выбираются методом наиболее удалённой
-    // точки. Поэтому они заполняют карту равномерно, а не образуют
-    // скопления в областях с высокой плотностью звёзд.
     while (
         selectedStars.length < targetCount
         && extraCandidates.length > 0

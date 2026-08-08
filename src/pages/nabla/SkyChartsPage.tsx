@@ -1,4 +1,5 @@
 import './skycharts.css'
+import './skycharts-exercise.css'
 
 import {
     useEffect,
@@ -6,7 +7,11 @@ import {
     useState,
 } from 'react'
 import type { ChangeEvent } from 'react'
+import { stars as starDeck } from '../../data/stars'
 import SkyChartSvg from '../../features/skycharts/SkyChartSvg'
+import type {
+    SkyChartMarker,
+} from '../../features/skycharts/SkyChartSvg'
 import {
     loadConstellationBoundaries,
     normalizeConstellationId,
@@ -21,6 +26,39 @@ import {
     buildSkyChartLineId,
     evaluateSkyChart,
 } from '../../features/skycharts/evaluateSkyChart'
+import type {
+    SkyChartEvaluation,
+} from '../../features/skycharts/evaluateSkyChart'
+import {
+    activateTask,
+    createInitialSessionState,
+    SKY_CHART_TASK_TITLES,
+} from '../../features/skycharts/exercise'
+import type {
+    AsterismsAnswer,
+    BoundaryCrossingId,
+    BoundaryCrossingsAnswer,
+    ChartPoint,
+    MessierAnswer,
+    MessierMarkerAnswer,
+    OrientationAnswer,
+    ReferencePointId,
+    ReferencePointsAnswer,
+    SkyChartExerciseTask,
+    SkyChartGenerationMode,
+    SkyChartSessionState,
+    SkyChartTaskAnswer,
+    StarMarkerAnswer,
+    StarsAnswer,
+} from '../../features/skycharts/exercise'
+import {
+    BOUNDARY_CROSSING_LABELS,
+    REFERENCE_POINT_LABELS,
+    REFERENCE_POINT_NAMES,
+} from '../../features/skycharts/exerciseLabels'
+import {
+    buildSkyChartExercise,
+} from '../../features/skycharts/exerciseGenerator'
 import {
     buildNamedCatalogStarIds,
     chooseSelectableStars,
@@ -33,9 +71,6 @@ import type {
     StellariumWesternReference,
 } from '../../features/skycharts/stellariumReference'
 import type {
-    SkyChartEvaluation,
-} from '../../features/skycharts/evaluateSkyChart'
-import type {
     CatalogStar,
     EquatorialFieldParameters,
     ProjectedStar,
@@ -44,6 +79,8 @@ import type {
     SkyChartParameters,
     VisibleHemisphereParameters,
 } from '../../features/skycharts/types'
+
+const SESSION_STORAGE_KEY = 'astro-trainer:skycharts:session:v1'
 
 const DEFAULT_VISIBLE_PARAMETERS: VisibleHemisphereParameters = {
     mode: 'visible-hemisphere',
@@ -161,7 +198,146 @@ function inputNumber(event: ChangeEvent<HTMLInputElement>) {
     return Number(event.target.value)
 }
 
+function newSeed() {
+    return Math.floor(Math.random() * 0xFFFFFFFF)
+}
+
+function newMarkerId(prefix: string) {
+    if (
+        typeof crypto !== 'undefined'
+        && typeof crypto.randomUUID === 'function'
+    ) {
+        return `${prefix}-${crypto.randomUUID()}`
+    }
+
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function readStoredSession() {
+    if (typeof window === 'undefined') {
+        return null
+    }
+
+    try {
+        const raw = window.localStorage.getItem(SESSION_STORAGE_KEY)
+
+        if (!raw) {
+            return null
+        }
+
+        const parsed = JSON.parse(raw) as SkyChartSessionState
+
+        if (
+            !parsed.exercise
+            || !Array.isArray(parsed.exercise.charts)
+            || !Array.isArray(parsed.exercise.tasks)
+            || parsed.exercise.charts.length === 0
+            || parsed.exercise.tasks.length === 0
+        ) {
+            return null
+        }
+
+        return parsed
+    } catch {
+        return null
+    }
+}
+
+function firstChartParameters(session: SkyChartSessionState | null) {
+    return session?.exercise.charts[0]?.parameters
+        ?? DEFAULT_VISIBLE_PARAMETERS
+}
+
+function replaceTaskAnswer(
+    session: SkyChartSessionState,
+    taskId: string,
+    answer: SkyChartTaskAnswer,
+): SkyChartSessionState {
+    return {
+        ...session,
+        answersByTaskId: {
+            ...session.answersByTaskId,
+            [taskId]: answer,
+        },
+        updatedAt: new Date().toISOString(),
+    }
+}
+
+function upsertReferenceMarker(
+    answer: ReferencePointsAnswer,
+    targetId: ReferencePointId,
+    point: ChartPoint,
+): ReferencePointsAnswer {
+    const nextMarker = {
+        id: `reference-${targetId}`,
+        targetId,
+        point,
+    }
+
+    return {
+        ...answer,
+        markers: [
+            ...answer.markers.filter(
+                (marker) => marker.targetId !== targetId,
+            ),
+            nextMarker,
+        ],
+        absentPointIds: answer.absentPointIds.filter(
+            (pointId) => pointId !== targetId,
+        ),
+    }
+}
+
+function upsertBoundaryMarker(
+    answer: BoundaryCrossingsAnswer,
+    targetId: BoundaryCrossingId,
+    point: ChartPoint,
+): BoundaryCrossingsAnswer {
+    return {
+        ...answer,
+        markers: [
+            ...answer.markers.filter(
+                (marker) => marker.targetId !== targetId,
+            ),
+            {
+                id: `boundary-${targetId}`,
+                targetId,
+                point,
+            },
+        ],
+    }
+}
+
+function upsertMessierMarker(
+    answer: MessierAnswer,
+    messierNumber: number,
+    point: ChartPoint,
+): MessierAnswer {
+    const nextMarker: MessierMarkerAnswer = {
+        id: `messier-${messierNumber}`,
+        messierNumber,
+        point,
+    }
+
+    return {
+        ...answer,
+        markers: [
+            ...answer.markers.filter(
+                (marker) => marker.messierNumber !== messierNumber,
+            ),
+            nextMarker,
+        ],
+        absentMessierNumbers: answer.absentMessierNumbers.filter(
+            (number) => number !== messierNumber,
+        ),
+    }
+}
+
 function SkyChartsPage() {
+    const [session, setSession] = useState<SkyChartSessionState | null>(
+        () => readStoredSession(),
+    )
+    const restoredParameters = firstChartParameters(session)
     const [catalog, setCatalog] = useState<readonly CatalogStar[]>([])
     const [catalogError, setCatalogError] = useState<string | null>(null)
     const [stellariumReference, setStellariumReference] = (
@@ -173,18 +349,24 @@ function SkyChartsPage() {
     )
     const [boundariesError, setBoundariesError] = useState<string | null>(null)
     const [draftParameters, setDraftParameters] = (
-        useState<SkyChartParameters>(DEFAULT_VISIBLE_PARAMETERS)
+        useState<SkyChartParameters>(restoredParameters)
     )
     const [chartParameters, setChartParameters] = (
-        useState<SkyChartParameters>(DEFAULT_VISIBLE_PARAMETERS)
+        useState<SkyChartParameters>(restoredParameters)
     )
-    const [lines, setLines] = useState<readonly SkyChartLine[]>([])
     const [selectedStarId, setSelectedStarId] = useState<string | null>(null)
     const [evaluation, setEvaluation] = (
         useState<SkyChartEvaluation | null>(null)
     )
     const [eraseMode, setEraseMode] = useState(false)
     const [continuousDrawing, setContinuousDrawing] = useState(true)
+    const [selectedPointTargetId, setSelectedPointTargetId] = (
+        useState<string | null>(null)
+    )
+    const [editingStarMarkerId, setEditingStarMarkerId] = (
+        useState<string | null>(null)
+    )
+    const [generatorOpen, setGeneratorOpen] = useState(session === null)
 
     useEffect(() => {
         const abortController = new AbortController()
@@ -293,6 +475,17 @@ function SkyChartsPage() {
         return () => abortController.abort()
     }, [])
 
+    useEffect(() => {
+        if (!session || typeof window === 'undefined') {
+            return
+        }
+
+        window.localStorage.setItem(
+            SESSION_STORAGE_KEY,
+            JSON.stringify(session),
+        )
+    }, [session])
+
     const boundStellariumReference = useMemo(
         () => (
             stellariumReference && catalog.length > 0
@@ -316,6 +509,22 @@ function SkyChartsPage() {
         [chartCatalog, chartParameters],
     )
 
+    const projectedStarsById = useMemo(
+        () => new Map(projectedStars.map((star) => [star.id, star])),
+        [projectedStars],
+    )
+
+    const starDeckById = useMemo(
+        () => new Map(starDeck.map((star) => [star.id, star])),
+        [],
+    )
+
+    const designationOptions = useMemo(
+        () => [...new Set(starDeck.map((star) => star.designation))]
+            .sort((first, second) => first.localeCompare(second, 'ru')),
+        [],
+    )
+
     const namedCatalogStarIds = useMemo(
         () => buildNamedCatalogStarIds(chartCatalog),
         [chartCatalog],
@@ -333,12 +542,59 @@ function SkyChartsPage() {
         ],
     )
 
-    const visibleAsterismVertexCount = useMemo(
-        () => projectedStars.filter(
-            (star) => requiredAsterismStarIds.has(star.id),
-        ).length,
-        [projectedStars, requiredAsterismStarIds],
+    useEffect(() => {
+        if (
+            session
+            || !boundStellariumReference
+            || chartCatalog.length === 0
+        ) {
+            return
+        }
+
+        const exercise = buildSkyChartExercise({
+            parameters: chartParameters,
+            catalog: chartCatalog,
+            projectedStars,
+            generationMode: 'manual',
+            seed: newSeed(),
+        })
+
+        setSession(createInitialSessionState(exercise))
+    }, [
+        boundStellariumReference,
+        chartCatalog,
+        chartParameters,
+        projectedStars,
+        session,
+    ])
+
+    const activeTask = useMemo(() => (
+        session?.exercise.tasks.find(
+            (task) => task.id === session.activeTaskId,
+        ) ?? null
+    ), [session])
+
+    const activeAnswer = (
+        activeTask && session
+            ? session.answersByTaskId[activeTask.id] ?? null
+            : null
     )
+
+    const asterismTask = useMemo(() => (
+        session?.exercise.tasks.find((task) => task.kind === 'asterisms')
+        ?? null
+    ), [session])
+    const asterismAnswer = (
+        asterismTask && session
+            ? session.answersByTaskId[asterismTask.id]
+            : null
+    )
+    const lines = (
+        asterismAnswer?.kind === 'asterisms'
+            ? asterismAnswer.lines
+            : []
+    )
+    const shownLines = activeTask?.kind === 'asterisms' ? lines : []
 
     const constellationStatuses = useMemo<
         ReadonlyMap<string, ConstellationEvaluationStatus>
@@ -348,6 +604,10 @@ function SkyChartsPage() {
             ConstellationEvaluationStatus
         >()
 
+        if (activeTask?.kind !== 'asterisms') {
+            return statuses
+        }
+
         for (const constellation of evaluation?.constellations ?? []) {
             statuses.set(
                 normalizeConstellationId(constellation.iau),
@@ -356,7 +616,7 @@ function SkyChartsPage() {
         }
 
         return statuses
-    }, [evaluation])
+    }, [activeTask?.kind, evaluation])
 
     const constellationHighlights = useMemo(
         () => projectEvaluatedConstellationBoundaries(
@@ -371,10 +631,68 @@ function SkyChartsPage() {
         ],
     )
 
-    function resetDrawing() {
-        setLines([])
+    useEffect(() => {
         setSelectedStarId(null)
+        setEraseMode(false)
+        setEditingStarMarkerId(null)
+
+        if (!activeTask || !activeAnswer) {
+            setSelectedPointTargetId(null)
+            return
+        }
+
+        if (activeTask.kind === 'reference-points') {
+            setSelectedPointTargetId(activeTask.pointIds[0] ?? null)
+        } else if (activeTask.kind === 'boundary-crossings') {
+            setSelectedPointTargetId(activeTask.crossingIds[0] ?? null)
+        } else if (activeTask.kind === 'messier') {
+            setSelectedPointTargetId(
+                activeTask.messierNumbers[0] !== undefined
+                    ? String(activeTask.messierNumbers[0])
+                    : null,
+            )
+        } else {
+            setSelectedPointTargetId(null)
+        }
+    }, [activeTask?.id])
+
+    function setAnswer(taskId: string, answer: SkyChartTaskAnswer) {
+        setSession((currentSession) => (
+            currentSession
+                ? replaceTaskAnswer(currentSession, taskId, answer)
+                : currentSession
+        ))
+    }
+
+    function startExercise(
+        parameters: SkyChartParameters,
+        generationMode: SkyChartGenerationMode,
+    ) {
+        setDraftParameters(parameters)
+        setChartParameters(parameters)
         setEvaluation(null)
+        setSelectedStarId(null)
+        setEraseMode(false)
+        setEditingStarMarkerId(null)
+
+        if (!boundStellariumReference) {
+            return
+        }
+
+        const exerciseCatalog = boundStellariumReference.catalog
+        const starsForExercise = projectSkyChart(
+            exerciseCatalog,
+            parameters,
+        )
+        const exercise = buildSkyChartExercise({
+            parameters,
+            catalog: exerciseCatalog,
+            projectedStars: starsForExercise,
+            generationMode,
+            seed: newSeed(),
+        })
+
+        setSession(createInitialSessionState(exercise))
     }
 
     function changeMode(mode: SkyChartMode) {
@@ -383,22 +701,26 @@ function SkyChartsPage() {
             : DEFAULT_FIELD_PARAMETERS
 
         setDraftParameters(nextParameters)
-        setChartParameters(nextParameters)
-        resetDrawing()
     }
 
     function generateFromCurrentParameters() {
         const normalized = normalizeParameters(draftParameters)
-        setDraftParameters(normalized)
-        setChartParameters(normalized)
-        resetDrawing()
+        startExercise(normalized, 'manual')
+        setGeneratorOpen(false)
     }
 
     function generateRandomChart() {
         const generatedParameters = randomParameters(draftParameters)
-        setDraftParameters(generatedParameters)
-        setChartParameters(generatedParameters)
-        resetDrawing()
+        const generationMode: SkyChartGenerationMode = (
+            generatedParameters.mode === 'visible-hemisphere'
+                ? 'random-hemisphere'
+                : generatedParameters.centerDecDeg >= 0
+                    ? 'random-north-field'
+                    : 'random-south-field'
+        )
+
+        startExercise(generatedParameters, generationMode)
+        setGeneratorOpen(false)
     }
 
     function updateLimitingMagnitude(value: number) {
@@ -408,55 +730,119 @@ function SkyChartsPage() {
         }))
     }
 
-    function handleStarSelect(star: ProjectedStar) {
-        setEvaluation(null)
+    function activateExerciseTask(task: SkyChartExerciseTask) {
+        setSession((currentSession) => (
+            currentSession
+                ? activateTask(currentSession, task.id)
+                : currentSession
+        ))
+    }
 
-        if (!selectedStarId) {
+    function setAsterismAnswer(linesValue: readonly SkyChartLine[]) {
+        if (!asterismTask || !session) {
+            return
+        }
+
+        const currentAnswer = session.answersByTaskId[asterismTask.id]
+
+        if (currentAnswer?.kind !== 'asterisms') {
+            return
+        }
+
+        const nextAnswer: AsterismsAnswer = {
+            ...currentAnswer,
+            lines: linesValue,
+        }
+        setAnswer(asterismTask.id, nextAnswer)
+        setEvaluation(null)
+    }
+
+    function handleStarSelect(star: ProjectedStar) {
+        if (!activeTask || !activeAnswer) {
+            return
+        }
+
+        if (activeTask.kind === 'asterisms') {
+            if (!selectedStarId) {
+                setSelectedStarId(star.id)
+                return
+            }
+
+            if (selectedStarId === star.id) {
+                setSelectedStarId(null)
+                return
+            }
+
+            const lineId = buildSkyChartLineId(
+                selectedStarId,
+                star.id,
+            )
+
+            if (!lines.some((line) => line.id === lineId)) {
+                setAsterismAnswer([
+                    ...lines,
+                    {
+                        id: lineId,
+                        startStarId: selectedStarId,
+                        endStarId: star.id,
+                    },
+                ])
+            }
+
+            setSelectedStarId(continuousDrawing ? star.id : null)
+            return
+        }
+
+        if (
+            activeTask.kind !== 'stars'
+            || activeAnswer.kind !== 'stars'
+        ) {
+            return
+        }
+
+        const existingMarker = activeAnswer.markers.find(
+            (marker) => marker.catalogStarId === star.id,
+        )
+
+        if (existingMarker) {
+            setEditingStarMarkerId(existingMarker.id)
             setSelectedStarId(star.id)
             return
         }
 
-        if (selectedStarId === star.id) {
-            setSelectedStarId(null)
-            return
+        const marker: StarMarkerAnswer = {
+            id: newMarkerId('star'),
+            catalogStarId: star.id,
+            selectedStarId: '',
+            selectedDesignation: '',
+        }
+        const nextAnswer: StarsAnswer = {
+            ...activeAnswer,
+            markers: [...activeAnswer.markers, marker],
         }
 
-        const lineId = buildSkyChartLineId(
-            selectedStarId,
-            star.id,
-        )
-
-        setLines((currentLines) => {
-            if (currentLines.some((line) => line.id === lineId)) {
-                return currentLines
-            }
-
-            return [
-                ...currentLines,
-                {
-                    id: lineId,
-                    startStarId: selectedStarId,
-                    endStarId: star.id,
-                },
-            ]
-        })
-        setSelectedStarId(continuousDrawing ? star.id : null)
+        setAnswer(activeTask.id, nextAnswer)
+        setEditingStarMarkerId(marker.id)
+        setSelectedStarId(star.id)
     }
 
     function handleLineErase(line: SkyChartLine) {
-        setEvaluation(null)
-        setLines((currentLines) => currentLines.filter(
+        setAsterismAnswer(lines.filter(
             (currentLine) => currentLine.id !== line.id,
         ))
     }
 
     function undoLastLine() {
-        setEvaluation(null)
-        setLines((currentLines) => currentLines.slice(0, -1))
+        setAsterismAnswer(lines.slice(0, -1))
         setSelectedStarId(null)
     }
 
     function finishCurrentChain() {
+        setSelectedStarId(null)
+    }
+
+    function resetDrawing() {
+        setAsterismAnswer([])
         setSelectedStarId(null)
     }
 
@@ -474,6 +860,749 @@ function SkyChartsPage() {
         setEraseMode(false)
     }
 
+    function handleChartPointSelect(point: ChartPoint) {
+        if (
+            !activeTask
+            || !activeAnswer
+            || !selectedPointTargetId
+        ) {
+            return
+        }
+
+        if (
+            activeTask.kind === 'reference-points'
+            && activeAnswer.kind === 'reference-points'
+        ) {
+            const targetId = selectedPointTargetId as ReferencePointId
+            setAnswer(
+                activeTask.id,
+                upsertReferenceMarker(activeAnswer, targetId, point),
+            )
+            return
+        }
+
+        if (
+            activeTask.kind === 'boundary-crossings'
+            && activeAnswer.kind === 'boundary-crossings'
+        ) {
+            const targetId = selectedPointTargetId as BoundaryCrossingId
+            setAnswer(
+                activeTask.id,
+                upsertBoundaryMarker(activeAnswer, targetId, point),
+            )
+            return
+        }
+
+        if (
+            activeTask.kind === 'messier'
+            && activeAnswer.kind === 'messier'
+        ) {
+            const messierNumber = Number(selectedPointTargetId)
+
+            if (Number.isFinite(messierNumber)) {
+                setAnswer(
+                    activeTask.id,
+                    upsertMessierMarker(
+                        activeAnswer,
+                        messierNumber,
+                        point,
+                    ),
+                )
+            }
+        }
+    }
+
+    function toggleReferenceAbsent(pointId: ReferencePointId) {
+        if (
+            !activeTask
+            || activeTask.kind !== 'reference-points'
+            || activeAnswer?.kind !== 'reference-points'
+        ) {
+            return
+        }
+
+        const isAbsent = activeAnswer.absentPointIds.includes(pointId)
+        const nextAnswer: ReferencePointsAnswer = {
+            ...activeAnswer,
+            markers: isAbsent
+                ? activeAnswer.markers
+                : activeAnswer.markers.filter(
+                    (marker) => marker.targetId !== pointId,
+                ),
+            absentPointIds: isAbsent
+                ? activeAnswer.absentPointIds.filter(
+                    (currentId) => currentId !== pointId,
+                )
+                : [...activeAnswer.absentPointIds, pointId],
+        }
+
+        setAnswer(activeTask.id, nextAnswer)
+    }
+
+    function toggleStarAbsent(starId: string) {
+        if (
+            !activeTask
+            || activeTask.kind !== 'stars'
+            || activeAnswer?.kind !== 'stars'
+        ) {
+            return
+        }
+
+        const isAbsent = activeAnswer.absentStarIds.includes(starId)
+        const nextAnswer: StarsAnswer = {
+            ...activeAnswer,
+            absentStarIds: isAbsent
+                ? activeAnswer.absentStarIds.filter(
+                    (currentId) => currentId !== starId,
+                )
+                : [...activeAnswer.absentStarIds, starId],
+        }
+
+        setAnswer(activeTask.id, nextAnswer)
+    }
+
+    function toggleMessierAbsent(messierNumber: number) {
+        if (
+            !activeTask
+            || activeTask.kind !== 'messier'
+            || activeAnswer?.kind !== 'messier'
+        ) {
+            return
+        }
+
+        const isAbsent = activeAnswer.absentMessierNumbers.includes(
+            messierNumber,
+        )
+        const nextAnswer: MessierAnswer = {
+            ...activeAnswer,
+            markers: isAbsent
+                ? activeAnswer.markers
+                : activeAnswer.markers.filter(
+                    (marker) => marker.messierNumber !== messierNumber,
+                ),
+            absentMessierNumbers: isAbsent
+                ? activeAnswer.absentMessierNumbers.filter(
+                    (number) => number !== messierNumber,
+                )
+                : [...activeAnswer.absentMessierNumbers, messierNumber],
+        }
+
+        setAnswer(activeTask.id, nextAnswer)
+    }
+
+    function updateEditingStarMarker(
+        patch: Partial<Pick<
+            StarMarkerAnswer,
+            'selectedStarId' | 'selectedDesignation'
+        >>,
+    ) {
+        if (
+            !activeTask
+            || activeTask.kind !== 'stars'
+            || activeAnswer?.kind !== 'stars'
+            || !editingStarMarkerId
+        ) {
+            return
+        }
+
+        const nextAnswer: StarsAnswer = {
+            ...activeAnswer,
+            markers: activeAnswer.markers.map((marker) => (
+                marker.id === editingStarMarkerId
+                    ? { ...marker, ...patch }
+                    : marker
+            )),
+        }
+
+        setAnswer(activeTask.id, nextAnswer)
+    }
+
+    function deleteEditingStarMarker() {
+        if (
+            !activeTask
+            || activeTask.kind !== 'stars'
+            || activeAnswer?.kind !== 'stars'
+            || !editingStarMarkerId
+        ) {
+            return
+        }
+
+        const nextAnswer: StarsAnswer = {
+            ...activeAnswer,
+            markers: activeAnswer.markers.filter(
+                (marker) => marker.id !== editingStarMarkerId,
+            ),
+        }
+
+        setAnswer(activeTask.id, nextAnswer)
+        setEditingStarMarkerId(null)
+        setSelectedStarId(null)
+    }
+
+    function updateOrientation(
+        patch: Partial<OrientationAnswer>,
+    ) {
+        if (
+            !activeTask
+            || activeTask.kind !== 'orientation'
+            || activeAnswer?.kind !== 'orientation'
+        ) {
+            return
+        }
+
+        setAnswer(activeTask.id, {
+            ...activeAnswer,
+            ...patch,
+        })
+    }
+
+    const editingStarMarker = (
+        activeAnswer?.kind === 'stars' && editingStarMarkerId
+            ? activeAnswer.markers.find(
+                (marker) => marker.id === editingStarMarkerId,
+            ) ?? null
+            : null
+    )
+
+    const answerMarkers = useMemo<SkyChartMarker[]>(() => {
+        if (!activeTask || !activeAnswer) {
+            return []
+        }
+
+        if (activeAnswer.kind === 'reference-points') {
+            return activeAnswer.markers.map((marker) => ({
+                id: marker.id,
+                x: marker.point.x,
+                y: marker.point.y,
+                label: REFERENCE_POINT_LABELS[marker.targetId],
+                shape: 'cross',
+            }))
+        }
+
+        if (activeAnswer.kind === 'boundary-crossings') {
+            return activeAnswer.markers.map((marker) => ({
+                id: marker.id,
+                x: marker.point.x,
+                y: marker.point.y,
+                label: BOUNDARY_CROSSING_LABELS[marker.targetId],
+                shape: 'dot',
+            }))
+        }
+
+        if (activeAnswer.kind === 'messier') {
+            return activeAnswer.markers.map((marker) => ({
+                id: marker.id,
+                x: marker.point.x,
+                y: marker.point.y,
+                label: `M${marker.messierNumber}`,
+                shape: 'triangle',
+            }))
+        }
+
+        if (activeAnswer.kind === 'stars') {
+            return activeAnswer.markers.flatMap((marker) => {
+                const projectedStar = projectedStarsById.get(
+                    marker.catalogStarId,
+                )
+
+                if (!projectedStar) {
+                    return []
+                }
+
+                const selectedDeckStar = starDeckById.get(
+                    marker.selectedStarId,
+                )
+
+                return [{
+                    id: marker.id,
+                    x: projectedStar.x,
+                    y: projectedStar.y,
+                    label: selectedDeckStar?.name ?? '?',
+                    shape: 'cross' as const,
+                }]
+            })
+        }
+
+        return []
+    }, [
+        activeAnswer,
+        activeTask,
+        projectedStarsById,
+        starDeckById,
+    ])
+
+    const pointSelectionEnabled = (
+        activeTask?.kind === 'reference-points'
+        || activeTask?.kind === 'boundary-crossings'
+        || activeTask?.kind === 'messier'
+    )
+    const starSelectionEnabled = (
+        activeTask?.kind === 'asterisms'
+        || activeTask?.kind === 'stars'
+    )
+
+    function renderTaskPanel() {
+        if (!activeTask || !activeAnswer) {
+            return null
+        }
+
+        if (
+            activeTask.kind === 'reference-points'
+            && activeAnswer.kind === 'reference-points'
+        ) {
+            return (
+                <div className="skychart-task-panel">
+                    <strong>Выберите точку и отметьте её на карте</strong>
+                    <div className="skychart-target-list">
+                        {activeTask.pointIds.map((pointId) => {
+                            const marked = activeAnswer.markers.some(
+                                (marker) => marker.targetId === pointId,
+                            )
+                            const absent = activeAnswer.absentPointIds.includes(
+                                pointId,
+                            )
+
+                            return (
+                                <div
+                                    className="skychart-target-row"
+                                    key={pointId}
+                                >
+                                    <button
+                                        type="button"
+                                        className={[
+                                            'skychart-target-button',
+                                            selectedPointTargetId === pointId
+                                                ? 'skychart-target-button--active'
+                                                : '',
+                                        ].filter(Boolean).join(' ')}
+                                        onClick={() => setSelectedPointTargetId(
+                                            pointId,
+                                        )}
+                                    >
+                                        <span>
+                                            {REFERENCE_POINT_LABELS[pointId]}
+                                        </span>
+                                        <span>
+                                            {REFERENCE_POINT_NAMES[pointId]}
+                                        </span>
+                                        <span>
+                                            {marked ? '✓' : absent ? 'нет' : ''}
+                                        </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={
+                                            absent
+                                                ? 'skychart-absent-button skychart-absent-button--active'
+                                                : 'skychart-absent-button'
+                                        }
+                                        onClick={() => toggleReferenceAbsent(
+                                            pointId,
+                                        )}
+                                    >
+                                        Нет на карте
+                                    </button>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            )
+        }
+
+        if (
+            activeTask.kind === 'boundary-crossings'
+            && activeAnswer.kind === 'boundary-crossings'
+        ) {
+            return (
+                <div className="skychart-task-panel">
+                    <strong>Выберите обозначение и поставьте точку на границе карты</strong>
+                    <div className="skychart-simple-target-grid">
+                        {activeTask.crossingIds.map((crossingId) => {
+                            const marked = activeAnswer.markers.some(
+                                (marker) => marker.targetId === crossingId,
+                            )
+
+                            return (
+                                <button
+                                    type="button"
+                                    key={crossingId}
+                                    className={[
+                                        'skychart-target-button',
+                                        selectedPointTargetId === crossingId
+                                            ? 'skychart-target-button--active'
+                                            : '',
+                                    ].filter(Boolean).join(' ')}
+                                    onClick={() => setSelectedPointTargetId(
+                                        crossingId,
+                                    )}
+                                >
+                                    <span>
+                                        {BOUNDARY_CROSSING_LABELS[crossingId]}
+                                    </span>
+                                    <span>{marked ? '✓' : ''}</span>
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
+            )
+        }
+
+        if (
+            activeTask.kind === 'stars'
+            && activeAnswer.kind === 'stars'
+        ) {
+            return (
+                <div className="skychart-task-panel">
+                    <strong>
+                        Нажмите на звезду на карте, затем выберите её имя и обозначение Байера
+                    </strong>
+
+                    <div className="skychart-star-task-list">
+                        {activeTask.starIds.map((starId) => {
+                            const deckStar = starDeckById.get(starId)
+                            const absent = activeAnswer.absentStarIds.includes(
+                                starId,
+                            )
+
+                            if (!deckStar) {
+                                return null
+                            }
+
+                            return (
+                                <label
+                                    className="skychart-star-list-item"
+                                    key={starId}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={absent}
+                                        onChange={() => toggleStarAbsent(starId)}
+                                    />
+                                    <span>{deckStar.name}</span>
+                                    <span>не видно</span>
+                                </label>
+                            )
+                        })}
+                    </div>
+
+                    {activeAnswer.markers.length > 0 && (
+                        <div className="skychart-marker-selector">
+                            {activeAnswer.markers.map((marker, index) => {
+                                const selectedDeckStar = starDeckById.get(
+                                    marker.selectedStarId,
+                                )
+
+                                return (
+                                    <button
+                                        type="button"
+                                        key={marker.id}
+                                        className={
+                                            marker.id === editingStarMarkerId
+                                                ? 'skychart-marker-chip skychart-marker-chip--active'
+                                                : 'skychart-marker-chip'
+                                        }
+                                        onClick={() => {
+                                            setEditingStarMarkerId(marker.id)
+                                            setSelectedStarId(
+                                                marker.catalogStarId,
+                                            )
+                                        }}
+                                    >
+                                        {index + 1}. {' '}
+                                        {selectedDeckStar?.name ?? 'без имени'}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    )}
+
+                    {editingStarMarker && (
+                        <div className="skychart-star-editor">
+                            <label>
+                                <span>Название звезды</span>
+                                <select
+                                    value={editingStarMarker.selectedStarId}
+                                    onChange={(event) => updateEditingStarMarker({
+                                        selectedStarId: event.target.value,
+                                    })}
+                                >
+                                    <option value="">Выберите</option>
+                                    {activeTask.starIds.map((starId) => {
+                                        const deckStar = starDeckById.get(starId)
+                                        return deckStar ? (
+                                            <option
+                                                key={starId}
+                                                value={starId}
+                                            >
+                                                {deckStar.name}
+                                            </option>
+                                        ) : null
+                                    })}
+                                </select>
+                            </label>
+
+                            <label>
+                                <span>Обозначение Байера</span>
+                                <select
+                                    value={editingStarMarker.selectedDesignation}
+                                    onChange={(event) => updateEditingStarMarker({
+                                        selectedDesignation: event.target.value,
+                                    })}
+                                >
+                                    <option value="">Выберите</option>
+                                    {designationOptions.map((designation) => (
+                                        <option
+                                            key={designation}
+                                            value={designation}
+                                        >
+                                            {designation}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            <button
+                                type="button"
+                                className="skychart-delete-marker-button"
+                                onClick={deleteEditingStarMarker}
+                            >
+                                Удалить эту отметку
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )
+        }
+
+        if (
+            activeTask.kind === 'messier'
+            && activeAnswer.kind === 'messier'
+        ) {
+            return (
+                <div className="skychart-task-panel">
+                    <strong>
+                        Выберите объект и отметьте его положение треугольником
+                    </strong>
+                    <div className="skychart-target-list">
+                        {activeTask.messierNumbers.map((number) => {
+                            const marked = activeAnswer.markers.some(
+                                (marker) => marker.messierNumber === number,
+                            )
+                            const absent = activeAnswer.absentMessierNumbers.includes(
+                                number,
+                            )
+
+                            return (
+                                <div
+                                    className="skychart-target-row"
+                                    key={number}
+                                >
+                                    <button
+                                        type="button"
+                                        className={[
+                                            'skychart-target-button',
+                                            selectedPointTargetId === String(number)
+                                                ? 'skychart-target-button--active'
+                                                : '',
+                                        ].filter(Boolean).join(' ')}
+                                        onClick={() => setSelectedPointTargetId(
+                                            String(number),
+                                        )}
+                                    >
+                                        <span>M{number}</span>
+                                        <span>{marked ? '✓' : absent ? 'нет' : ''}</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={
+                                            absent
+                                                ? 'skychart-absent-button skychart-absent-button--active'
+                                                : 'skychart-absent-button'
+                                        }
+                                        onClick={() => toggleMessierAbsent(number)}
+                                    >
+                                        Нет на карте
+                                    </button>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            )
+        }
+
+        if (
+            activeTask.kind === 'asterisms'
+            && activeAnswer.kind === 'asterisms'
+        ) {
+            return (
+                <div className="skychart-drawing-panel">
+                    <div>
+                        <span className="skychart-drawing-label">
+                            Линии созвездий
+                        </span>
+                        <strong>
+                            {eraseMode
+                                ? 'Нажмите на линию, чтобы стереть её'
+                                : selectedStarId
+                                    ? 'Выберите следующую звезду'
+                                    : 'Выберите первую звезду'}
+                        </strong>
+                    </div>
+
+                    <div className="skychart-tool-switch">
+                        <button
+                            type="button"
+                            className={
+                                eraseMode
+                                    ? 'skychart-tool-button'
+                                    : 'skychart-tool-button skychart-tool-button--active'
+                            }
+                            onClick={() => setEraseMode(false)}
+                        >
+                            Рисование
+                        </button>
+                        <button
+                            type="button"
+                            className={
+                                eraseMode
+                                    ? 'skychart-tool-button skychart-tool-button--active'
+                                    : 'skychart-tool-button'
+                            }
+                            onClick={() => {
+                                setEraseMode(true)
+                                setSelectedStarId(null)
+                            }}
+                        >
+                            Ластик
+                        </button>
+                    </div>
+
+                    <label className="skychart-chain-toggle">
+                        <input
+                            type="checkbox"
+                            checked={continuousDrawing}
+                            onChange={(event) => setContinuousDrawing(
+                                event.target.checked,
+                            )}
+                        />
+                        <span>Непрерывная линия</span>
+                    </label>
+
+                    <div className="skychart-drawing-actions">
+                        <button
+                            type="button"
+                            onClick={undoLastLine}
+                            disabled={lines.length === 0}
+                        >
+                            Отменить
+                        </button>
+                        <button
+                            type="button"
+                            onClick={finishCurrentChain}
+                            disabled={!selectedStarId}
+                        >
+                            Завершить линию
+                        </button>
+                        <button
+                            type="button"
+                            onClick={resetDrawing}
+                            disabled={
+                                lines.length === 0
+                                && !selectedStarId
+                            }
+                        >
+                            Очистить всё
+                        </button>
+                        <button
+                            type="button"
+                            className="skychart-check-button"
+                            onClick={checkDrawing}
+                            disabled={!boundStellariumReference}
+                        >
+                            Проверить
+                        </button>
+                    </div>
+
+                    {evaluation && (
+                        <div className={[
+                            'skychart-evaluation',
+                            evaluation.isPerfect
+                                ? 'skychart-evaluation--perfect'
+                                : '',
+                        ].filter(Boolean).join(' ')}>
+                            <strong>
+                                {evaluation.isPerfect
+                                    ? 'Все видимые созвездия распознаны'
+                                    : `Оценка: ${evaluation.scorePercent}%`}
+                            </strong>
+                            <span>
+                                Правильных созвездий: {' '}
+                                {evaluation.correctConstellationCount}
+                                {' / '}
+                                {evaluation.checkedConstellationCount}
+                            </span>
+                            <span>
+                                Неправильных: {evaluation.incorrectConstellationCount}
+                            </span>
+                            <span>
+                                Лишних линий: {evaluation.extraLineCount}
+                            </span>
+                            <span>
+                                Не дорисовано: {evaluation.missingLineCount}
+                            </span>
+                        </div>
+                    )}
+                </div>
+            )
+        }
+
+        if (
+            activeTask.kind === 'orientation'
+            && activeAnswer.kind === 'orientation'
+        ) {
+            return (
+                <div className="skychart-task-panel">
+                    <strong>Определите параметры карты</strong>
+                    <label className="skychart-field">
+                        <span>Широта, °</span>
+                        <input
+                            type="number"
+                            min="-90"
+                            max="90"
+                            step="0.1"
+                            value={activeAnswer.latitudeDeg ?? ''}
+                            onChange={(event) => updateOrientation({
+                                latitudeDeg: event.target.value === ''
+                                    ? null
+                                    : Number(event.target.value),
+                            })}
+                        />
+                    </label>
+                    <label className="skychart-field">
+                        <span>Звёздное время, ч</span>
+                        <input
+                            type="number"
+                            min="0"
+                            max="24"
+                            step="0.1"
+                            value={activeAnswer.siderealTimeHours ?? ''}
+                            onChange={(event) => updateOrientation({
+                                siderealTimeHours: event.target.value === ''
+                                    ? null
+                                    : Number(event.target.value),
+                            })}
+                        />
+                    </label>
+                </div>
+            )
+        }
+
+        return null
+    }
+
     return (
         <section className="nabla-content-page">
             <div className="nabla-intro">
@@ -482,328 +1611,219 @@ function SkyChartsPage() {
 
             <div className="skychart-workspace">
                 <aside className="skychart-controls">
-                    <h3>Параметры карты</h3>
+                    <button
+                        type="button"
+                        className="skychart-generator-toggle"
+                        onClick={() => setGeneratorOpen((open) => !open)}
+                    >
+                        {generatorOpen
+                            ? 'Скрыть параметры генератора'
+                            : 'Параметры генератора'}
+                    </button>
 
-                    <div className="skychart-mode-switch">
-                        <button
-                            type="button"
-                            className={
-                                draftParameters.mode === 'visible-hemisphere'
-                                    ? 'skychart-mode-button skychart-mode-button--active'
-                                    : 'skychart-mode-button'
-                            }
-                            onClick={() => changeMode('visible-hemisphere')}
-                        >
-                            Полушарие
-                        </button>
-                        <button
-                            type="button"
-                            className={
-                                draftParameters.mode === 'equatorial-field'
-                                    ? 'skychart-mode-button skychart-mode-button--active'
-                                    : 'skychart-mode-button'
-                            }
-                            onClick={() => changeMode('equatorial-field')}
-                        >
-                            Участок неба
-                        </button>
-                    </div>
+                    {generatorOpen && (
+                        <div className="skychart-generator-settings">
+                            <h3>Параметры карты</h3>
 
-                    {draftParameters.mode === 'visible-hemisphere' ? (
-                        <>
+                            <div className="skychart-mode-switch">
+                                <button
+                                    type="button"
+                                    className={
+                                        draftParameters.mode === 'visible-hemisphere'
+                                            ? 'skychart-mode-button skychart-mode-button--active'
+                                            : 'skychart-mode-button'
+                                    }
+                                    onClick={() => changeMode('visible-hemisphere')}
+                                >
+                                    Полушарие
+                                </button>
+                                <button
+                                    type="button"
+                                    className={
+                                        draftParameters.mode === 'equatorial-field'
+                                            ? 'skychart-mode-button skychart-mode-button--active'
+                                            : 'skychart-mode-button'
+                                    }
+                                    onClick={() => changeMode('equatorial-field')}
+                                >
+                                    Участок неба
+                                </button>
+                            </div>
+
+                            {draftParameters.mode === 'visible-hemisphere' ? (
+                                <>
+                                    <label className="skychart-field">
+                                        <span>Широта, °</span>
+                                        <input
+                                            type="number"
+                                            min="-90"
+                                            max="90"
+                                            step="0.1"
+                                            value={draftParameters.latitudeDeg}
+                                            onChange={(event) => setDraftParameters({
+                                                ...draftParameters,
+                                                latitudeDeg: inputNumber(event),
+                                            })}
+                                        />
+                                    </label>
+
+                                    <label className="skychart-field">
+                                        <span>Звёздное время, ч</span>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="24"
+                                            step="0.1"
+                                            value={draftParameters.siderealTimeHours}
+                                            onChange={(event) => setDraftParameters({
+                                                ...draftParameters,
+                                                siderealTimeHours: inputNumber(event),
+                                            })}
+                                        />
+                                    </label>
+                                </>
+                            ) : (
+                                <>
+                                    <label className="skychart-field">
+                                        <span>Прямое восхождение центра, ч</span>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="24"
+                                            step="0.1"
+                                            value={draftParameters.centerRaHours}
+                                            onChange={(event) => setDraftParameters({
+                                                ...draftParameters,
+                                                centerRaHours: inputNumber(event),
+                                            })}
+                                        />
+                                    </label>
+
+                                    <label className="skychart-field">
+                                        <span>Склонение центра, °</span>
+                                        <input
+                                            type="number"
+                                            min="-90"
+                                            max="90"
+                                            step="0.1"
+                                            value={draftParameters.centerDecDeg}
+                                            onChange={(event) => setDraftParameters({
+                                                ...draftParameters,
+                                                centerDecDeg: inputNumber(event),
+                                            })}
+                                        />
+                                    </label>
+
+                                    <label className="skychart-field">
+                                        <span>Угловой диаметр карты, °</span>
+                                        <input
+                                            type="number"
+                                            min="2"
+                                            max="180"
+                                            step="1"
+                                            value={draftParameters.angularDiameterDeg}
+                                            onChange={(event) => setDraftParameters({
+                                                ...draftParameters,
+                                                angularDiameterDeg: inputNumber(event),
+                                            })}
+                                        />
+                                    </label>
+
+                                    <label className="skychart-field">
+                                        <span>Поворот карты, °</span>
+                                        <input
+                                            type="number"
+                                            min="-180"
+                                            max="180"
+                                            step="1"
+                                            value={draftParameters.rotationDeg}
+                                            onChange={(event) => setDraftParameters({
+                                                ...draftParameters,
+                                                rotationDeg: inputNumber(event),
+                                            })}
+                                        />
+                                    </label>
+                                </>
+                            )}
+
                             <label className="skychart-field">
-                                <span>Широта, °</span>
+                                <span>Предельная звёздная величина</span>
                                 <input
                                     type="number"
-                                    min="-90"
-                                    max="90"
+                                    min="-2"
+                                    max="8"
                                     step="0.1"
-                                    value={draftParameters.latitudeDeg}
-                                    onChange={(event: ChangeEvent<HTMLInputElement>) => setDraftParameters({
-                                        ...draftParameters,
-                                        latitudeDeg: inputNumber(event),
-                                    })}
+                                    value={draftParameters.limitingMagnitude}
+                                    onChange={(event) => updateLimitingMagnitude(
+                                        inputNumber(event),
+                                    )}
                                 />
                             </label>
 
-                            <label className="skychart-field">
-                                <span>Звёздное время, ч</span>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="24"
-                                    step="0.1"
-                                    value={draftParameters.siderealTimeHours}
-                                    onChange={(event: ChangeEvent<HTMLInputElement>) => setDraftParameters({
-                                        ...draftParameters,
-                                        siderealTimeHours: inputNumber(event),
-                                    })}
-                                />
-                            </label>
-                        </>
-                    ) : (
-                        <>
-                            <label className="skychart-field">
-                                <span>Прямое восхождение центра, ч</span>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="24"
-                                    step="0.1"
-                                    value={draftParameters.centerRaHours}
-                                    onChange={(event: ChangeEvent<HTMLInputElement>) => setDraftParameters({
-                                        ...draftParameters,
-                                        centerRaHours: inputNumber(event),
-                                    })}
-                                />
-                            </label>
+                            <div className="skychart-control-actions">
+                                <button
+                                    className="button button-primary"
+                                    type="button"
+                                    onClick={generateFromCurrentParameters}
+                                >
+                                    Построить карту и задания
+                                </button>
 
-                            <label className="skychart-field">
-                                <span>Склонение центра, °</span>
-                                <input
-                                    type="number"
-                                    min="-90"
-                                    max="90"
-                                    step="0.1"
-                                    value={draftParameters.centerDecDeg}
-                                    onChange={(event: ChangeEvent<HTMLInputElement>) => setDraftParameters({
-                                        ...draftParameters,
-                                        centerDecDeg: inputNumber(event),
-                                    })}
-                                />
-                            </label>
-
-                            <label className="skychart-field">
-                                <span>Угловой диаметр карты, °</span>
-                                <input
-                                    type="number"
-                                    min="2"
-                                    max="180"
-                                    step="1"
-                                    value={draftParameters.angularDiameterDeg}
-                                    onChange={(event: ChangeEvent<HTMLInputElement>) => setDraftParameters({
-                                        ...draftParameters,
-                                        angularDiameterDeg: inputNumber(event),
-                                    })}
-                                />
-                            </label>
-
-                            <label className="skychart-field">
-                                <span>Поворот карты, °</span>
-                                <input
-                                    type="number"
-                                    min="-180"
-                                    max="180"
-                                    step="1"
-                                    value={draftParameters.rotationDeg}
-                                    onChange={(event: ChangeEvent<HTMLInputElement>) => setDraftParameters({
-                                        ...draftParameters,
-                                        rotationDeg: inputNumber(event),
-                                    })}
-                                />
-                            </label>
-                        </>
+                                <button
+                                    className="button button-secondary"
+                                    type="button"
+                                    onClick={generateRandomChart}
+                                >
+                                    Случайная карта и задания
+                                </button>
+                            </div>
+                        </div>
                     )}
 
-                    <label className="skychart-field">
-                        <span>Предельная звёздная величина</span>
-                        <input
-                            type="number"
-                            min="-2"
-                            max="8"
-                            step="0.1"
-                            value={draftParameters.limitingMagnitude}
-                            onChange={(event: ChangeEvent<HTMLInputElement>) => updateLimitingMagnitude(
-                                inputNumber(event),
-                            )}
-                        />
-                    </label>
+                    {session && (
+                        <>
+                            <div className="skychart-task-switcher">
+                                {session.exercise.tasks.map((task, index) => (
+                                    <button
+                                        type="button"
+                                        key={task.id}
+                                        className={
+                                            task.id === session.activeTaskId
+                                                ? 'skychart-task-button skychart-task-button--active'
+                                                : 'skychart-task-button'
+                                        }
+                                        onClick={() => activateExerciseTask(task)}
+                                    >
+                                        <span>{index + 1}</span>
+                                        <span>
+                                            {SKY_CHART_TASK_TITLES[task.kind]}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
 
-                    <div className="skychart-control-actions">
-                        <button
-                            className="button button-primary"
-                            type="button"
-                            onClick={generateFromCurrentParameters}
-                        >
-                            Построить карту
-                        </button>
+                            {renderTaskPanel()}
 
-                        <button
-                            className="button button-secondary"
-                            type="button"
-                            onClick={generateRandomChart}
-                        >
-                            Случайная карта
-                        </button>
-                    </div>
-
-                    <div className="skychart-drawing-panel">
-                        <div>
-                            <span className="skychart-drawing-label">
-                                Линии созвездий
-                            </span>
-                            <strong>
-                                {eraseMode
-                                    ? 'Нажмите на линию, чтобы стереть её'
-                                    : selectedStarId
-                                        ? 'Выберите следующую звезду'
-                                        : 'Выберите первую звезду'}
-                            </strong>
-                        </div>
-
-                        <div className="skychart-tool-switch">
-                            <button
-                                type="button"
-                                className={eraseMode ? 'skychart-tool-button' : 'skychart-tool-button skychart-tool-button--active'}
-                                onClick={() => setEraseMode(false)}
-                            >
-                                Рисование
-                            </button>
-                            <button
-                                type="button"
-                                className={eraseMode ? 'skychart-tool-button skychart-tool-button--active' : 'skychart-tool-button'}
-                                onClick={() => {
-                                    setEraseMode(true)
-                                    setSelectedStarId(null)
-                                }}
-                            >
-                                Ластик
-                            </button>
-                        </div>
-
-                        <label className="skychart-chain-toggle">
-                            <input
-                                type="checkbox"
-                                checked={continuousDrawing}
-                                onChange={(event: ChangeEvent<HTMLInputElement>) => setContinuousDrawing(
-                                    event.target.checked,
-                                )}
-                            />
-                            <span>Непрерывная линия</span>
-                        </label>
-
-                        <div className="skychart-drawing-actions">
-                            <button
-                                type="button"
-                                onClick={undoLastLine}
-                                disabled={lines.length === 0}
-                            >
-                                Отменить
-                            </button>
-                            <button
-                                type="button"
-                                onClick={finishCurrentChain}
-                                disabled={!selectedStarId}
-                            >
-                                Завершить линию
-                            </button>
-                            <button
-                                type="button"
-                                onClick={resetDrawing}
-                                disabled={
-                                    lines.length === 0
-                                    && !selectedStarId
-                                }
-                            >
-                                Очистить всё
-                            </button>
-                            <button
-                                type="button"
-                                className="skychart-check-button"
-                                onClick={checkDrawing}
-                                disabled={!boundStellariumReference}
-                            >
-                                Проверить
-                            </button>
-                        </div>
-
-                        {evaluation && (
-                            <div className={[
-                                'skychart-evaluation',
-                                evaluation.isPerfect
-                                    ? 'skychart-evaluation--perfect'
-                                    : '',
-                            ].filter(Boolean).join(' ')}>
-                                <strong>
-                                    {evaluation.isPerfect
-                                        ? 'Все видимые созвездия распознаны'
-                                        : `Оценка: ${evaluation.scorePercent}%`}
-                                </strong>
+                            <div className="skychart-current-values">
                                 <span>
-                                    Правильных созвездий: {' '}
-                                    {evaluation.correctConstellationCount}
-                                    {' / '}
-                                    {evaluation.checkedConstellationCount}
+                                    Seed
+                                    <strong>{session.exercise.seed}</strong>
                                 </span>
                                 <span>
-                                    Неправильных: {evaluation.incorrectConstellationCount}
+                                    Звёзд на карте
+                                    <strong>{projectedStars.length}</strong>
                                 </span>
                                 <span>
-                                    Лишних линий: {evaluation.extraLineCount}
+                                    Кликабельных звёзд
+                                    <strong>{selectableStars.length}</strong>
                                 </span>
                                 <span>
-                                    Не дорисовано: {evaluation.missingLineCount}
+                                    Сохранение
+                                    <strong>автоматически</strong>
                                 </span>
                             </div>
-                        )}
-                    </div>
-
-                    <div className="skychart-current-values">
-                        {chartParameters.mode === 'visible-hemisphere' ? (
-                            <>
-                                <span>
-                                    Широта
-                                    <strong>
-                                        {chartParameters.latitudeDeg.toFixed(1)}°
-                                    </strong>
-                                </span>
-                                <span>
-                                    Звёздное время
-                                    <strong>
-                                        {chartParameters.siderealTimeHours.toFixed(1)} ч
-                                    </strong>
-                                </span>
-                            </>
-                        ) : (
-                            <>
-                                <span>
-                                    Центр
-                                    <strong>
-                                        {chartParameters.centerRaHours.toFixed(1)} ч,{' '}
-                                        {chartParameters.centerDecDeg.toFixed(1)}°
-                                    </strong>
-                                </span>
-                                <span>
-                                    Диаметр
-                                    <strong>
-                                        {chartParameters.angularDiameterDeg.toFixed(0)}°
-                                    </strong>
-                                </span>
-                            </>
-                        )}
-                        <span>
-                            Звёзд на карте
-                            <strong>{projectedStars.length}</strong>
-                        </span>
-                        <span>
-                            Вершин Stellarium
-                            <strong>{visibleAsterismVertexCount}</strong>
-                        </span>
-                        <span>
-                            Созвездий в эталоне
-                            <strong>
-                                {boundStellariumReference?.constellations.length ?? 0}
-                            </strong>
-                        </span>
-                        <span>
-                            Кликабельных звёзд
-                            <strong>{selectableStars.length}</strong>
-                        </span>
-                        <span>
-                            Нарисовано линий
-                            <strong>{lines.length}</strong>
-                        </span>
-                    </div>
+                        </>
+                    )}
                 </aside>
 
                 <div className="skychart-preview">
@@ -815,34 +1835,55 @@ function SkyChartsPage() {
                         catalog.length === 0
                         || !boundStellariumReference
                         || constellationBoundaries.length === 0
+                        || !session
                     ) ? (
                         <div className="skychart-message">
-                            Загружаем каталог, эталон и границы созвездий…
+                            Загружаем каталог, эталон и задания…
                         </div>
                     ) : (
                         <>
                             <SkyChartSvg
                                 stars={projectedStars}
                                 selectableStars={selectableStars}
-                                lines={lines}
+                                lines={shownLines}
                                 selectedStarId={selectedStarId}
                                 onStarSelect={handleStarSelect}
-                                eraseMode={eraseMode}
+                                starSelectionEnabled={starSelectionEnabled}
+                                pointSelectionEnabled={pointSelectionEnabled}
+                                onChartPointSelect={handleChartPointSelect}
+                                markers={answerMarkers}
+                                eraseMode={
+                                    activeTask?.kind === 'asterisms'
+                                    && eraseMode
+                                }
                                 onLineErase={handleLineErase}
-                                correctLineIds={evaluation?.correctLineIds}
-                                extraLineIds={evaluation?.extraLineIds}
-                                missingLines={evaluation?.missingLines}
-                                constellationHighlights={constellationHighlights}
+                                correctLineIds={
+                                    activeTask?.kind === 'asterisms'
+                                        ? evaluation?.correctLineIds
+                                        : undefined
+                                }
+                                extraLineIds={
+                                    activeTask?.kind === 'asterisms'
+                                        ? evaluation?.extraLineIds
+                                        : undefined
+                                }
+                                missingLines={
+                                    activeTask?.kind === 'asterisms'
+                                        ? evaluation?.missingLines
+                                        : []
+                                }
+                                constellationHighlights={
+                                    activeTask?.kind === 'asterisms'
+                                        ? constellationHighlights
+                                        : []
+                                }
                             />
                             <p className="skychart-hint">
-                                В режиме рисования можно просто тыкать по звёздам подряд —
-                                если включена непрерывная линия, новая линия будет продолжаться
-                                от последней выбранной звезды. В режиме ластика клик по линии
-                                удаляет её. После проверки правильные созвездия подсвечиваются
-                                зелёным, неправильные — красным внутри настоящих границ IAU.
-                                Правильные линии становятся зелёными, лишние — красными,
-                                а недостающие показываются пунктиром. Для Большой Медведицы
-                                засчитывается обычный семизвёздный ковш без дополнительных линий.
+                                Переключайте задания слева. Ответы каждого задания
+                                сохраняются отдельно и не исчезают при переключении.
+                                Точки и объекты ставятся обычным кликом по карте,
+                                звёзды привязываются к ближайшему кликабельному маркеру,
+                                а в задании на астеризмы работает прежнее рисование линий.
                             </p>
                         </>
                     )}

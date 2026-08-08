@@ -1,0 +1,292 @@
+.skychart-generator-toggle {
+    width: 100%;
+    padding: 10px 12px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.025);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 680;
+    cursor: pointer;
+}
+
+.skychart-generator-toggle:hover {
+    color: var(--text);
+    border-color: rgba(197, 184, 255, 0.45);
+}
+
+.skychart-generator-settings {
+    margin-top: 18px;
+}
+
+.skychart-task-switcher {
+    display: grid;
+    gap: 7px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+.skychart-task-button {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    align-items: center;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.025);
+    font: inherit;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.skychart-task-button > span:first-child {
+    color: var(--primary-light);
+    font-size: 10px;
+    font-weight: 760;
+}
+
+.skychart-task-button:hover {
+    color: var(--text);
+    border-color: rgba(197, 184, 255, 0.45);
+}
+
+.skychart-task-button--active {
+    color: #0a0c13;
+    border-color: transparent;
+    background: linear-gradient(120deg, #ffffff, #c7baff);
+}
+
+.skychart-task-button--active > span:first-child {
+    color: #554488;
+}
+
+.skychart-task-panel {
+    display: grid;
+    gap: 14px;
+    margin-top: 18px;
+    padding: 17px;
+    border: 1px solid rgba(197, 184, 255, 0.2);
+    border-radius: 16px;
+    background: rgba(154, 124, 255, 0.045);
+}
+
+.skychart-task-panel > strong {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.skychart-target-list {
+    display: grid;
+    gap: 7px;
+    max-height: 310px;
+    overflow-y: auto;
+}
+
+.skychart-target-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+}
+
+.skychart-target-button,
+.skychart-absent-button,
+.skychart-marker-chip,
+.skychart-delete-marker-button {
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.025);
+    font: inherit;
+    cursor: pointer;
+}
+
+.skychart-target-button {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    min-width: 0;
+    padding: 9px 10px;
+    align-items: center;
+    color: var(--muted);
+    border-radius: 9px;
+    font-size: 11px;
+    text-align: left;
+}
+
+.skychart-target-button > span:first-child {
+    color: var(--text);
+    font-weight: 720;
+}
+
+.skychart-target-button > span:last-child {
+    color: var(--primary-light);
+}
+
+.skychart-target-button:hover,
+.skychart-target-button--active {
+    color: var(--text);
+    border-color: rgba(197, 184, 255, 0.55);
+    background: rgba(197, 184, 255, 0.08);
+}
+
+.skychart-target-button--active {
+    box-shadow: inset 0 0 0 1px rgba(197, 184, 255, 0.18);
+}
+
+.skychart-absent-button {
+    padding: 7px 9px;
+    color: #838ca0;
+    border-radius: 9px;
+    font-size: 10px;
+}
+
+.skychart-absent-button:hover,
+.skychart-absent-button--active {
+    color: var(--text);
+    border-color: rgba(197, 184, 255, 0.45);
+}
+
+.skychart-absent-button--active {
+    background: rgba(197, 184, 255, 0.1);
+}
+
+.skychart-simple-target-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.skychart-simple-target-grid .skychart-target-button {
+    grid-template-columns: 1fr auto;
+}
+
+.skychart-star-task-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px 10px;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.skychart-star-list-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 6px;
+    align-items: center;
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.skychart-star-list-item span:last-child {
+    color: #727b8e;
+    font-size: 9px;
+}
+
+.skychart-marker-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.skychart-marker-chip {
+    padding: 7px 9px;
+    color: var(--muted);
+    border-radius: 999px;
+    font-size: 10px;
+}
+
+.skychart-marker-chip:hover,
+.skychart-marker-chip--active {
+    color: var(--text);
+    border-color: rgba(197, 184, 255, 0.5);
+}
+
+.skychart-marker-chip--active {
+    background: rgba(197, 184, 255, 0.1);
+}
+
+.skychart-star-editor {
+    display: grid;
+    gap: 10px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(197, 184, 255, 0.16);
+}
+
+.skychart-star-editor label {
+    display: grid;
+    gap: 7px;
+}
+
+.skychart-star-editor label > span {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 650;
+}
+
+.skychart-star-editor select {
+    width: 100%;
+    padding: 9px 10px;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    outline: none;
+    background: #11182b;
+    font: inherit;
+    font-size: 11px;
+}
+
+.skychart-delete-marker-button {
+    padding: 8px 10px;
+    color: #c89292;
+    border-radius: 9px;
+    font-size: 10px;
+}
+
+.skychart-delete-marker-button:hover {
+    color: #efb0b0;
+    border-color: rgba(217, 77, 77, 0.45);
+}
+
+.sky-chart-svg--point-selection {
+    cursor: crosshair;
+}
+
+.sky-chart-answer-marker {
+    color: #111111;
+    pointer-events: none;
+}
+
+.sky-chart-answer-marker line,
+.sky-chart-answer-marker path,
+.sky-chart-answer-marker circle {
+    fill: #ffffff;
+    stroke: #111111;
+    stroke-width: 2;
+}
+
+.sky-chart-answer-marker-label {
+    fill: #111111;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 650;
+    paint-order: stroke;
+    stroke: #ffffff;
+    stroke-width: 4px;
+    stroke-linejoin: round;
+}
+
+@media (max-width: 680px) {
+    .skychart-star-task-list,
+    .skychart-simple-target-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .skychart-target-row {
+        grid-template-columns: 1fr;
+    }
+}

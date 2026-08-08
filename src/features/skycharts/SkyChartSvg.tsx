@@ -17,10 +17,22 @@ import type {
 } from './types'
 
 const VIEWPORT_SIZE = 1000
+const CHART_CENTER = VIEWPORT_SIZE / 2
+const CHART_RADIUS = 472
 const MIN_VIEWBOX_SIZE = 125
 const CLICK_MOVEMENT_LIMIT_PX = 6
 const STAR_HIT_RADIUS_PX = 10
 const LINE_HIT_RADIUS_PX = 12
+
+export type SkyChartMarkerShape = 'cross' | 'triangle' | 'dot'
+
+export type SkyChartMarker = {
+    id: string
+    x: number
+    y: number
+    label: string
+    shape: SkyChartMarkerShape
+}
 
 export type SkyChartSvgProps = {
     stars: readonly ProjectedStar[]
@@ -28,6 +40,10 @@ export type SkyChartSvgProps = {
     lines: readonly SkyChartLine[]
     selectedStarId: string | null
     onStarSelect: (star: ProjectedStar) => void
+    starSelectionEnabled?: boolean
+    pointSelectionEnabled?: boolean
+    onChartPointSelect?: (point: { x: number; y: number }) => void
+    markers?: readonly SkyChartMarker[]
     eraseMode?: boolean
     onLineErase?: (line: SkyChartLine) => void
     correctLineIds?: ReadonlySet<string>
@@ -131,6 +147,13 @@ function clientPointToChartPoint(
     }
 }
 
+function isInsideChart(point: Point) {
+    return Math.hypot(
+        point.x - CHART_CENTER,
+        point.y - CHART_CENTER,
+    ) <= CHART_RADIUS + 1e-6
+}
+
 function distanceSquared(first: Point, second: Point) {
     return (
         (first.x - second.x) ** 2
@@ -172,6 +195,10 @@ function SkyChartSvg({
     lines,
     selectedStarId,
     onStarSelect,
+    starSelectionEnabled = true,
+    pointSelectionEnabled = false,
+    onChartPointSelect,
+    markers = [],
     eraseMode = false,
     onLineErase,
     correctLineIds,
@@ -263,6 +290,18 @@ function SkyChartSvg({
         }
     }, [])
 
+    function chartPointFromEvent(
+        event: ReactPointerEvent<SVGSVGElement>,
+    ) {
+        const bounds = event.currentTarget.getBoundingClientRect()
+        return clientPointToChartPoint(
+            event.clientX,
+            event.clientY,
+            bounds,
+            viewBoxRef.current,
+        )
+    }
+
     function selectNearestStar(
         event: ReactPointerEvent<SVGSVGElement>,
     ) {
@@ -301,6 +340,20 @@ function SkyChartSvg({
 
         if (nearestStar) {
             onStarSelect(nearestStar)
+        }
+    }
+
+    function selectChartPoint(
+        event: ReactPointerEvent<SVGSVGElement>,
+    ) {
+        if (!onChartPointSelect) {
+            return
+        }
+
+        const point = chartPointFromEvent(event)
+
+        if (isInsideChart(point)) {
+            onChartPointSelect(point)
         }
     }
 
@@ -440,7 +493,9 @@ function SkyChartSvg({
         if (!pointerState.moved) {
             if (eraseMode) {
                 eraseNearestLine(event)
-            } else {
+            } else if (pointSelectionEnabled) {
+                selectChartPoint(event)
+            } else if (starSelectionEnabled) {
                 selectNearestStar(event)
             }
         }
@@ -502,6 +557,9 @@ function SkyChartSvg({
                     'sky-chart-svg',
                     isZoomed ? 'sky-chart-svg--zoomed' : '',
                     eraseMode ? 'sky-chart-svg--erase-mode' : '',
+                    pointSelectionEnabled
+                        ? 'sky-chart-svg--point-selection'
+                        : '',
                 ].filter(Boolean).join(' ')}
                 viewBox={[
                     viewBox.x,
@@ -537,6 +595,7 @@ function SkyChartSvg({
                         r="472"
                         fill="#ffffff"
                     />
+
                     {constellationHighlights.flatMap((highlight) => {
                         const className = [
                             'sky-chart-constellation-highlight',
@@ -628,6 +687,55 @@ function SkyChartSvg({
                             vectorEffect="non-scaling-stroke"
                         />
                     )}
+
+                    {markers.map((marker) => (
+                        <g
+                            key={marker.id}
+                            className="sky-chart-answer-marker"
+                            transform={`translate(${marker.x} ${marker.y})`}
+                        >
+                            {marker.shape === 'cross' && (
+                                <>
+                                    <line
+                                        x1="-8"
+                                        y1="-8"
+                                        x2="8"
+                                        y2="8"
+                                        vectorEffect="non-scaling-stroke"
+                                    />
+                                    <line
+                                        x1="-8"
+                                        y1="8"
+                                        x2="8"
+                                        y2="-8"
+                                        vectorEffect="non-scaling-stroke"
+                                    />
+                                </>
+                            )}
+
+                            {marker.shape === 'triangle' && (
+                                <path
+                                    d="M 0 -10 L 9 7 L -9 7 Z"
+                                    vectorEffect="non-scaling-stroke"
+                                />
+                            )}
+
+                            {marker.shape === 'dot' && (
+                                <circle
+                                    r="5"
+                                    vectorEffect="non-scaling-stroke"
+                                />
+                            )}
+
+                            <text
+                                x="13"
+                                y="-11"
+                                className="sky-chart-answer-marker-label"
+                            >
+                                {marker.label}
+                            </text>
+                        </g>
+                    ))}
                 </g>
 
                 <circle
