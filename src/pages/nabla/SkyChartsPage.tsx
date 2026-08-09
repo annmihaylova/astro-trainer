@@ -9,6 +9,9 @@ import {
 import type { ChangeEvent } from 'react'
 import { stars as starDeck } from '../../data/stars'
 import SkyChartSvg from '../../features/skycharts/SkyChartSvg'
+import type {
+    SkyChartMarker,
+} from '../../features/skycharts/SkyChartSvg'
 import {
     buildSkyChartAnswerMarkers,
 } from '../../features/skycharts/answerLayers'
@@ -53,7 +56,7 @@ import type {
     StarsAnswer,
 } from '../../features/skycharts/exercise'
 import {
-    BOUNDARY_CROSSING_LABELS,
+    BOUNDARY_CROSSING_GROUPS,
     REFERENCE_POINT_LABELS,
     REFERENCE_POINT_NAMES,
 } from '../../features/skycharts/exerciseLabels'
@@ -589,6 +592,7 @@ function SkyChartsPage() {
             ? asterismAnswer.lines
             : []
     )
+
     const constellationStatuses = useMemo<
         ReadonlyMap<string, ConstellationEvaluationStatus>
     >(() => {
@@ -637,7 +641,9 @@ function SkyChartsPage() {
         if (activeTask.kind === 'reference-points') {
             setSelectedPointTargetId(activeTask.pointIds[0] ?? null)
         } else if (activeTask.kind === 'boundary-crossings') {
-            setSelectedPointTargetId(activeTask.crossingIds[0] ?? null)
+            setSelectedPointTargetId(
+                BOUNDARY_CROSSING_GROUPS[0]?.id ?? null,
+            )
         } else if (activeTask.kind === 'messier') {
             setSelectedPointTargetId(
                 activeTask.messierNumbers[0] !== undefined
@@ -878,7 +884,28 @@ function SkyChartsPage() {
             activeTask.kind === 'boundary-crossings'
             && activeAnswer.kind === 'boundary-crossings'
         ) {
-            const targetId = selectedPointTargetId as BoundaryCrossingId
+            const group = BOUNDARY_CROSSING_GROUPS.find(
+                (currentGroup) => (
+                    currentGroup.id === selectedPointTargetId
+                ),
+            )
+
+            if (!group) {
+                return
+            }
+
+            const targetId = group.targetIds.find(
+                (currentTargetId) => (
+                    !activeAnswer.markers.some(
+                        (marker) => marker.targetId === currentTargetId,
+                    )
+                ),
+            )
+
+            if (!targetId) {
+                return
+            }
+
             setAnswer(
                 activeTask.id,
                 upsertBoundaryMarker(activeAnswer, targetId, point),
@@ -902,6 +929,50 @@ function SkyChartsPage() {
                     ),
                 )
             }
+        }
+    }
+
+    function handleMarkerErase(marker: SkyChartMarker) {
+        if (!activeTask || !activeAnswer) {
+            return
+        }
+
+        if (
+            activeTask.kind === 'reference-points'
+            && activeAnswer.kind === 'reference-points'
+        ) {
+            setAnswer(activeTask.id, {
+                ...activeAnswer,
+                markers: activeAnswer.markers.filter(
+                    (currentMarker) => currentMarker.id !== marker.id,
+                ),
+            })
+            return
+        }
+
+        if (
+            activeTask.kind === 'boundary-crossings'
+            && activeAnswer.kind === 'boundary-crossings'
+        ) {
+            setAnswer(activeTask.id, {
+                ...activeAnswer,
+                markers: activeAnswer.markers.filter(
+                    (currentMarker) => currentMarker.id !== marker.id,
+                ),
+            })
+            return
+        }
+
+        if (
+            activeTask.kind === 'messier'
+            && activeAnswer.kind === 'messier'
+        ) {
+            setAnswer(activeTask.id, {
+                ...activeAnswer,
+                markers: activeAnswer.markers.filter(
+                    (currentMarker) => currentMarker.id !== marker.id,
+                ),
+            })
         }
     }
 
@@ -1101,15 +1172,58 @@ function SkyChartsPage() {
         starDeckById,
     ])
 
-    const pointSelectionEnabled = (
+    const pointSelectionEnabled = !eraseMode && (
         activeTask?.kind === 'reference-points'
         || activeTask?.kind === 'boundary-crossings'
         || activeTask?.kind === 'messier'
     )
-    const starSelectionEnabled = (
+    const starSelectionEnabled = !eraseMode && (
         activeTask?.kind === 'asterisms'
         || activeTask?.kind === 'stars'
     )
+    const markerEraseEnabled = eraseMode && (
+        activeTask?.kind === 'reference-points'
+        || activeTask?.kind === 'boundary-crossings'
+        || activeTask?.kind === 'messier'
+    )
+
+    function renderPointToolSwitch() {
+        return (
+            <div className="skychart-tool-switch">
+                <button
+                    type="button"
+                    className={
+                        eraseMode
+                            ? 'skychart-tool-button'
+                            : (
+                                'skychart-tool-button '
+                                + 'skychart-tool-button--active'
+                            )
+                    }
+                    onClick={() => setEraseMode(false)}
+                >
+                    Отметка
+                </button>
+                <button
+                    type="button"
+                    className={
+                        eraseMode
+                            ? (
+                                'skychart-tool-button '
+                                + 'skychart-tool-button--active'
+                            )
+                            : 'skychart-tool-button'
+                    }
+                    onClick={() => {
+                        setEraseMode(true)
+                        setSelectedStarId(null)
+                    }}
+                >
+                    Ластик
+                </button>
+            </div>
+        )
+    }
 
     function renderTaskPanel() {
         if (!activeTask || !activeAnswer) {
@@ -1122,7 +1236,12 @@ function SkyChartsPage() {
         ) {
             return (
                 <div className="skychart-task-panel">
-                    <strong>Выберите точку и отметьте её на карте</strong>
+                    <strong>
+                        {eraseMode
+                            ? 'Нажмите или проведите по отметке, которую хотите стереть'
+                            : 'Выберите точку и отметьте её на карте'}
+                    </strong>
+                    {renderPointToolSwitch()}
                     <div className="skychart-target-list">
                         {activeTask.pointIds.map((pointId) => {
                             const marked = activeAnswer.markers.some(
@@ -1145,9 +1264,10 @@ function SkyChartsPage() {
                                                 ? 'skychart-target-button--active'
                                                 : '',
                                         ].filter(Boolean).join(' ')}
-                                        onClick={() => setSelectedPointTargetId(
-                                            pointId,
-                                        )}
+                                        onClick={() => {
+                                            setSelectedPointTargetId(pointId)
+                                            setEraseMode(false)
+                                        }}
                                     >
                                         <span>
                                             {REFERENCE_POINT_LABELS[pointId]}
@@ -1186,31 +1306,37 @@ function SkyChartsPage() {
         ) {
             return (
                 <div className="skychart-task-panel">
-                    <strong>Выберите обозначение и поставьте точку на границе карты</strong>
+                    <strong>
+                        {eraseMode
+                            ? 'Нажмите или проведите по точке, которую хотите стереть'
+                            : 'Выберите линию и поставьте две точки на границе карты'}
+                    </strong>
+                    {renderPointToolSwitch()}
                     <div className="skychart-simple-target-grid">
-                        {activeTask.crossingIds.map((crossingId) => {
-                            const marked = activeAnswer.markers.some(
-                                (marker) => marker.targetId === crossingId,
-                            )
+                        {BOUNDARY_CROSSING_GROUPS.map((group) => {
+                            const markedCount = group.targetIds.filter(
+                                (targetId) => activeAnswer.markers.some(
+                                    (marker) => marker.targetId === targetId,
+                                ),
+                            ).length
 
                             return (
                                 <button
                                     type="button"
-                                    key={crossingId}
+                                    key={group.id}
                                     className={[
                                         'skychart-target-button',
-                                        selectedPointTargetId === crossingId
+                                        selectedPointTargetId === group.id
                                             ? 'skychart-target-button--active'
                                             : '',
                                     ].filter(Boolean).join(' ')}
-                                    onClick={() => setSelectedPointTargetId(
-                                        crossingId,
-                                    )}
+                                    onClick={() => {
+                                        setSelectedPointTargetId(group.id)
+                                        setEraseMode(false)
+                                    }}
                                 >
-                                    <span>
-                                        {BOUNDARY_CROSSING_LABELS[crossingId]}
-                                    </span>
-                                    <span>{marked ? '✓' : ''}</span>
+                                    <span>{group.label}</span>
+                                    <span>{markedCount} / 2</span>
                                 </button>
                             )
                         })}
@@ -1248,8 +1374,11 @@ function SkyChartsPage() {
             return (
                 <div className="skychart-task-panel">
                     <strong>
-                        Выберите объект и отметьте его положение треугольником
+                        {eraseMode
+                            ? 'Нажмите или проведите по объекту, который хотите стереть'
+                            : 'Выберите объект и отметьте его положение треугольником'}
                     </strong>
+                    {renderPointToolSwitch()}
                     <div className="skychart-target-list">
                         {activeTask.messierNumbers.map((number) => {
                             const marked = activeAnswer.markers.some(
@@ -1272,12 +1401,17 @@ function SkyChartsPage() {
                                                 ? 'skychart-target-button--active'
                                                 : '',
                                         ].filter(Boolean).join(' ')}
-                                        onClick={() => setSelectedPointTargetId(
-                                            String(number),
-                                        )}
+                                        onClick={() => {
+                                            setSelectedPointTargetId(
+                                                String(number),
+                                            )
+                                            setEraseMode(false)
+                                        }}
                                     >
                                         <span>M{number}</span>
-                                        <span>{marked ? '✓' : absent ? 'нет' : ''}</span>
+                                        <span>
+                                            {marked ? '✓' : absent ? 'нет' : ''}
+                                        </span>
                                     </button>
                                     <button
                                         type="button"
@@ -1531,7 +1665,6 @@ function SkyChartsPage() {
                                             })}
                                         />
                                     </label>
-
                                     <label className="skychart-field">
                                         <span>Звёздное время, ч</span>
                                         <input
@@ -1563,7 +1696,6 @@ function SkyChartsPage() {
                                             })}
                                         />
                                     </label>
-
                                     <label className="skychart-field">
                                         <span>Склонение центра, °</span>
                                         <input
@@ -1578,7 +1710,6 @@ function SkyChartsPage() {
                                             })}
                                         />
                                     </label>
-
                                     <label className="skychart-field">
                                         <span>Угловой диаметр карты, °</span>
                                         <input
@@ -1593,7 +1724,6 @@ function SkyChartsPage() {
                                             })}
                                         />
                                     </label>
-
                                     <label className="skychart-field">
                                         <span>Поворот карты, °</span>
                                         <input
@@ -1633,7 +1763,6 @@ function SkyChartsPage() {
                                 >
                                     Построить карту и задания
                                 </button>
-
                                 <button
                                     className="button button-secondary"
                                     type="button"
@@ -1720,10 +1849,9 @@ function SkyChartsPage() {
                                 pointSelectionEnabled={pointSelectionEnabled}
                                 onChartPointSelect={handleChartPointSelect}
                                 markers={answerMarkers}
-                                eraseMode={
-                                    activeTask?.kind === 'asterisms'
-                                    && eraseMode
-                                }
+                                eraseMode={eraseMode}
+                                markerEraseEnabled={markerEraseEnabled}
+                                onMarkerErase={handleMarkerErase}
                                 onLineErase={handleLineErase}
                                 correctLineIds={
                                     activeTask?.kind === 'asterisms'
@@ -1749,9 +1877,9 @@ function SkyChartsPage() {
                             <p className="skychart-hint">
                                 Переключайте задания слева. Всё уже нанесённое остаётся
                                 на общей карте: активный слой показывается полностью,
-                                остальные — полупрозрачно. Точки и объекты ставятся
-                                обычным кликом, звёзды привязываются к ближайшей
-                                кликабельной звезде, а астеризмы рисуются линиями.
+                                остальные — полупрозрачно. Ластик удаляет только
+                                отметки текущего задания и не меняет ответ на
+                                «нет на карте».
                             </p>
                         </>
                     )}

@@ -23,6 +23,7 @@ const MIN_VIEWBOX_SIZE = 125
 const CLICK_MOVEMENT_LIMIT_PX = 6
 const STAR_HIT_RADIUS_PX = 10
 const LINE_HIT_RADIUS_PX = 12
+const MARKER_HIT_RADIUS_PX = 22
 
 export type SkyChartMarkerShape = 'cross' | 'triangle' | 'dot'
 
@@ -48,6 +49,8 @@ export type SkyChartSvgProps = {
     onChartPointSelect?: (point: { x: number; y: number }) => void
     markers?: readonly SkyChartMarker[]
     eraseMode?: boolean
+    markerEraseEnabled?: boolean
+    onMarkerErase?: (marker: SkyChartMarker) => void
     onLineErase?: (line: SkyChartLine) => void
     correctLineIds?: ReadonlySet<string>
     extraLineIds?: ReadonlySet<string>
@@ -204,6 +207,8 @@ function SkyChartSvg({
     onChartPointSelect,
     markers = [],
     eraseMode = false,
+    markerEraseEnabled = false,
+    onMarkerErase,
     onLineErase,
     correctLineIds,
     extraLineIds,
@@ -413,6 +418,56 @@ function SkyChartSvg({
         }
     }
 
+    function eraseNearestMarker(
+        event: ReactPointerEvent<SVGSVGElement>,
+    ) {
+        if (!onMarkerErase || markers.length === 0) {
+            return
+        }
+
+        const bounds = event.currentTarget.getBoundingClientRect()
+        const currentViewBox = viewBoxRef.current
+        const pointer = clientPointToChartPoint(
+            event.clientX,
+            event.clientY,
+            bounds,
+            currentViewBox,
+        )
+        const hitRadius = (
+            MARKER_HIT_RADIUS_PX
+            * currentViewBox.width
+            / bounds.width
+        )
+
+        let nearestMarker: SkyChartMarker | null = null
+        let nearestDistanceSquared = Number.POSITIVE_INFINITY
+
+        for (const marker of markers) {
+            // Ластик не должен цеплять полупрозрачные ответы
+            // из других заданий.
+            if (marker.active === false) {
+                continue
+            }
+
+            const markerDistanceSquared = distanceSquared(
+                pointer,
+                marker,
+            )
+
+            if (
+                markerDistanceSquared <= hitRadius ** 2
+                && markerDistanceSquared < nearestDistanceSquared
+            ) {
+                nearestMarker = marker
+                nearestDistanceSquared = markerDistanceSquared
+            }
+        }
+
+        if (nearestMarker) {
+            onMarkerErase(nearestMarker)
+        }
+    }
+
     function handlePointerDown(
         event: ReactPointerEvent<SVGSVGElement>,
     ) {
@@ -426,6 +481,12 @@ function SkyChartSvg({
             startClientY: event.clientY,
             startViewBox: viewBoxRef.current,
             moved: false,
+        }
+
+        if (eraseMode && markerEraseEnabled) {
+            eraseNearestMarker(event)
+            event.currentTarget.setPointerCapture(event.pointerId)
+            return
         }
 
         if (event.pointerType !== 'touch' && isZoomed) {
@@ -453,6 +514,11 @@ function SkyChartSvg({
             > CLICK_MOVEMENT_LIMIT_PX
         ) {
             pointerState.moved = true
+        }
+
+        if (eraseMode && markerEraseEnabled) {
+            eraseNearestMarker(event)
+            return
         }
 
         if (
@@ -494,7 +560,9 @@ function SkyChartSvg({
             return
         }
 
-        if (!pointerState.moved) {
+        if (eraseMode && markerEraseEnabled) {
+            eraseNearestMarker(event)
+        } else if (!pointerState.moved) {
             if (eraseMode) {
                 eraseNearestLine(event)
             } else if (pointSelectionEnabled) {
@@ -573,6 +641,11 @@ function SkyChartSvg({
                 ].join(' ')}
                 role="img"
                 aria-label="Интерактивная звёздная карта"
+                style={
+                    eraseMode
+                        ? { touchAction: 'none' }
+                        : undefined
+                }
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
