@@ -24,8 +24,11 @@ const CLICK_MOVEMENT_LIMIT_PX = 6
 const STAR_HIT_RADIUS_PX = 10
 const LINE_HIT_RADIUS_PX = 12
 const MARKER_HIT_RADIUS_PX = 22
+const PREFERRED_STAR_HIT_RADIUS_MULTIPLIER = 1.65
 
 export type SkyChartMarkerShape = 'cross' | 'triangle' | 'dot'
+export type SkyChartMarkerStatus = 'correct' | 'partial' | 'incorrect'
+export type SkyChartMarkerLabelPlacement = 'default' | 'inward'
 
 export type SkyChartMarker = {
     id: string
@@ -35,6 +38,8 @@ export type SkyChartMarker = {
     secondaryLabel?: string
     shape: SkyChartMarkerShape
     active?: boolean
+    status?: SkyChartMarkerStatus
+    labelPlacement?: SkyChartMarkerLabelPlacement
 }
 
 export type SkyChartSvgProps = {
@@ -45,6 +50,7 @@ export type SkyChartSvgProps = {
     selectedStarId: string | null
     onStarSelect: (star: ProjectedStar) => void
     starSelectionEnabled?: boolean
+    preferredStarIds?: ReadonlySet<string>
     pointSelectionEnabled?: boolean
     onChartPointSelect?: (point: { x: number; y: number }) => void
     markers?: readonly SkyChartMarker[]
@@ -203,6 +209,7 @@ function SkyChartSvg({
     selectedStarId,
     onStarSelect,
     starSelectionEnabled = true,
+    preferredStarIds,
     pointSelectionEnabled = false,
     onChartPointSelect,
     markers = [],
@@ -328,27 +335,43 @@ function SkyChartSvg({
             / bounds.width
         )
 
+        let nearestPreferredStar: ProjectedStar | null = null
+        let nearestPreferredDistanceSquared = Number.POSITIVE_INFINITY
         let nearestStar: ProjectedStar | null = null
         let nearestDistanceSquared = Number.POSITIVE_INFINITY
 
         for (const star of selectableStars) {
             const distanceToStarSquared = distanceSquared(pointer, star)
+            const preferred = preferredStarIds?.has(star.id) ?? false
             const allowedDistance = Math.max(
-                hitRadius,
+                preferred
+                    ? hitRadius * PREFERRED_STAR_HIT_RADIUS_MULTIPLIER
+                    : hitRadius,
                 star.radius + hitRadius * 0.35,
             )
 
+            if (distanceToStarSquared > allowedDistance ** 2) {
+                continue
+            }
+
             if (
-                distanceToStarSquared <= allowedDistance ** 2
-                && distanceToStarSquared < nearestDistanceSquared
+                preferred
+                && distanceToStarSquared < nearestPreferredDistanceSquared
             ) {
+                nearestPreferredStar = star
+                nearestPreferredDistanceSquared = distanceToStarSquared
+            }
+
+            if (distanceToStarSquared < nearestDistanceSquared) {
                 nearestStar = star
                 nearestDistanceSquared = distanceToStarSquared
             }
         }
 
-        if (nearestStar) {
-            onStarSelect(nearestStar)
+        const selected = nearestPreferredStar ?? nearestStar
+
+        if (selected) {
+            onStarSelect(selected)
         }
     }
 
@@ -587,6 +610,51 @@ function SkyChartSvg({
         }
     }
 
+    function markerLabelPosition(marker: SkyChartMarker) {
+        if (marker.labelPlacement !== 'inward') {
+            return {
+                x: 13,
+                y: -11,
+                textAnchor: 'start' as const,
+            }
+        }
+
+        const deltaX = CHART_CENTER - marker.x
+        const deltaY = CHART_CENTER - marker.y
+        const length = Math.hypot(deltaX, deltaY) || 1
+        const unitX = deltaX / length
+        const unitY = deltaY / length
+        const distance = 20
+
+        return {
+            x: unitX * distance,
+            y: unitY * distance,
+            textAnchor: (
+                Math.abs(unitX) < 0.25
+                    ? 'middle'
+                    : unitX > 0
+                        ? 'start'
+                        : 'end'
+            ) as 'start' | 'middle' | 'end',
+        }
+    }
+
+    function markerStatusColor(marker: SkyChartMarker) {
+        if (marker.status === 'correct') {
+            return '#1f9d55'
+        }
+
+        if (marker.status === 'partial') {
+            return '#d38b22'
+        }
+
+        if (marker.status === 'incorrect') {
+            return '#d94d4d'
+        }
+
+        return '#111111'
+    }
+
     function zoomFromCenter(scaleFactor: number) {
         const currentViewBox = viewBoxRef.current
         zoomAroundPoint(
@@ -768,71 +836,94 @@ function SkyChartSvg({
                         />
                     )}
 
-                    {markers.map((marker) => (
-                        <g
-                            key={marker.id}
-                            className={[
-                                'sky-chart-answer-marker',
-                                marker.active === false
-                                    ? 'sky-chart-answer-marker--inactive'
-                                    : '',
-                            ].filter(Boolean).join(' ')}
-                            transform={`translate(${marker.x} ${marker.y})`}
-                        >
-                            {marker.shape === 'cross' && (
-                                <>
-                                    <line
-                                        x1="-8"
-                                        y1="-8"
-                                        x2="8"
-                                        y2="8"
+                    {markers.map((marker) => {
+                        const labelPosition = markerLabelPosition(marker)
+                        const statusColor = markerStatusColor(marker)
+                        const shapeStyle = {
+                            stroke: statusColor,
+                        }
+                        const labelStyle = {
+                            fill: statusColor,
+                        }
+
+                        return (
+                            <g
+                                key={marker.id}
+                                className={[
+                                    'sky-chart-answer-marker',
+                                    marker.active === false
+                                        ? 'sky-chart-answer-marker--inactive'
+                                        : '',
+                                ].filter(Boolean).join(' ')}
+                                transform={`translate(${marker.x} ${marker.y})`}
+                            >
+                                {marker.shape === 'cross' && (
+                                    <>
+                                        <line
+                                            x1="-8"
+                                            y1="-8"
+                                            x2="8"
+                                            y2="8"
+                                            style={shapeStyle}
+                                            vectorEffect="non-scaling-stroke"
+                                        />
+                                        <line
+                                            x1="-8"
+                                            y1="8"
+                                            x2="8"
+                                            y2="-8"
+                                            style={shapeStyle}
+                                            vectorEffect="non-scaling-stroke"
+                                        />
+                                    </>
+                                )}
+
+                                {marker.shape === 'triangle' && (
+                                    <path
+                                        d="M 0 -10 L 9 7 L -9 7 Z"
+                                        style={shapeStyle}
                                         vectorEffect="non-scaling-stroke"
                                     />
-                                    <line
-                                        x1="-8"
-                                        y1="8"
-                                        x2="8"
-                                        y2="-8"
+                                )}
+
+                                {marker.shape === 'dot' && (
+                                    <circle
+                                        r="5"
+                                        style={shapeStyle}
                                         vectorEffect="non-scaling-stroke"
                                     />
-                                </>
-                            )}
+                                )}
 
-                            {marker.shape === 'triangle' && (
-                                <path
-                                    d="M 0 -10 L 9 7 L -9 7 Z"
-                                    vectorEffect="non-scaling-stroke"
-                                />
-                            )}
+                                {marker.label && (
+                                    <text
+                                        x={labelPosition.x}
+                                        y={labelPosition.y}
+                                        textAnchor={labelPosition.textAnchor}
+                                        dominantBaseline={
+                                            marker.labelPlacement === 'inward'
+                                                ? 'middle'
+                                                : undefined
+                                        }
+                                        style={labelStyle}
+                                        className="sky-chart-answer-marker-label"
+                                    >
+                                        {marker.label}
+                                    </text>
+                                )}
 
-                            {marker.shape === 'dot' && (
-                                <circle
-                                    r="5"
-                                    vectorEffect="non-scaling-stroke"
-                                />
-                            )}
-
-                            {marker.label && (
-                                <text
-                                    x="13"
-                                    y="-11"
-                                    className="sky-chart-answer-marker-label"
-                                >
-                                    {marker.label}
-                                </text>
-                            )}
-
-                            {marker.secondaryLabel && (
-                                <text
-                                    x="13"
-                                    y="9"
-                                    className="sky-chart-answer-marker-secondary-label"
-                                >
-                                    {marker.secondaryLabel}
-                                </text>
-                            )}
-                        </g>
-                    ))}
+                                {marker.secondaryLabel && (
+                                    <text
+                                        x="13"
+                                        y="9"
+                                        style={labelStyle}
+                                        className="sky-chart-answer-marker-secondary-label"
+                                    >
+                                        {marker.secondaryLabel}
+                                    </text>
+                                )}
+                            </g>
+                        )
+                    })}
                 </g>
 
                 <circle

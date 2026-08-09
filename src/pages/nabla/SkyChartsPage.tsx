@@ -34,6 +34,13 @@ import type {
     SkyChartEvaluation,
 } from '../../features/skycharts/evaluateSkyChart'
 import {
+    evaluateSkyChartExercise,
+    finalizeSkyChartSessionAnswers,
+} from '../../features/skycharts/exerciseEvaluation'
+import type {
+    SkyChartExerciseEvaluationResult,
+} from '../../features/skycharts/exerciseEvaluation'
+import {
     activateTask,
     createInitialSessionState,
     SKY_CHART_TASK_TITLES,
@@ -84,7 +91,7 @@ import type {
     VisibleHemisphereParameters,
 } from '../../features/skycharts/types'
 
-const SESSION_STORAGE_KEY = 'astro-trainer:skycharts:session:v1'
+const SESSION_STORAGE_KEY = 'astro-trainer:skycharts:session:v2'
 
 const DEFAULT_VISIBLE_PARAMETERS: VisibleHemisphereParameters = {
     mode: 'visible-hemisphere',
@@ -263,6 +270,7 @@ function replaceTaskAnswer(
             ...session.answersByTaskId,
             [taskId]: answer,
         },
+        evaluationsByTaskId: {},
         updatedAt: new Date().toISOString(),
     }
 }
@@ -361,6 +369,9 @@ function SkyChartsPage() {
     const [selectedStarId, setSelectedStarId] = useState<string | null>(null)
     const [evaluation, setEvaluation] = (
         useState<SkyChartEvaluation | null>(null)
+    )
+    const [exerciseEvaluation, setExerciseEvaluation] = (
+        useState<SkyChartExerciseEvaluationResult | null>(null)
     )
     const [eraseMode, setEraseMode] = useState(false)
     const [continuousDrawing, setContinuousDrawing] = useState(true)
@@ -656,6 +667,7 @@ function SkyChartsPage() {
     }, [activeTask?.id])
 
     function setAnswer(taskId: string, answer: SkyChartTaskAnswer) {
+        setExerciseEvaluation(null)
         setSession((currentSession) => (
             currentSession
                 ? replaceTaskAnswer(currentSession, taskId, answer)
@@ -670,6 +682,7 @@ function SkyChartsPage() {
         setDraftParameters(parameters)
         setChartParameters(parameters)
         setEvaluation(null)
+        setExerciseEvaluation(null)
         setSelectedStarId(null)
         setEraseMode(false)
         setEditingStarMarkerId(null)
@@ -856,6 +869,39 @@ function SkyChartsPage() {
             lines,
         ))
         setSelectedStarId(null)
+        setEraseMode(false)
+    }
+
+    function checkAllAnswers() {
+        if (!session || !boundStellariumReference) {
+            return
+        }
+
+        const finalizedSession = finalizeSkyChartSessionAnswers(session)
+        const nextEvaluation = evaluateSkyChartExercise(
+            finalizedSession,
+            chartCatalog,
+            boundStellariumReference.constellations,
+        )
+        const evaluationsByTaskId = Object.fromEntries(
+            nextEvaluation.tasks.map((taskEvaluation) => [
+                taskEvaluation.taskId,
+                {
+                    scorePercent: taskEvaluation.scorePercent,
+                    checked: true,
+                },
+            ]),
+        )
+
+        setSession({
+            ...finalizedSession,
+            evaluationsByTaskId,
+            updatedAt: new Date().toISOString(),
+        })
+        setExerciseEvaluation(nextEvaluation)
+        setEvaluation(nextEvaluation.asterismEvaluation)
+        setSelectedStarId(null)
+        setEditingStarMarkerId(null)
         setEraseMode(false)
     }
 
@@ -1163,10 +1209,12 @@ function SkyChartsPage() {
                 activeTask,
                 projectedStarsById,
                 starDeckById,
+                markerStatuses: exerciseEvaluation?.markerStatuses,
             })
             : []
     ), [
         activeTask,
+        exerciseEvaluation,
         projectedStarsById,
         session,
         starDeckById,
@@ -1798,6 +1846,47 @@ function SkyChartsPage() {
 
                             {renderTaskPanel()}
 
+                            <div className="skychart-global-check">
+                                <button
+                                    type="button"
+                                    className="button button-primary"
+                                    onClick={checkAllAnswers}
+                                    disabled={!boundStellariumReference}
+                                >
+                                    Проверить все ответы
+                                </button>
+
+                                {exerciseEvaluation && (
+                                    <div className="skychart-global-result">
+                                        <strong>
+                                            Общий результат: {' '}
+                                            {exerciseEvaluation.scorePercent}%
+                                        </strong>
+
+                                        {exerciseEvaluation.tasks.map(
+                                            (taskEvaluation) => (
+                                                <div
+                                                    className="skychart-global-result-row"
+                                                    key={taskEvaluation.taskId}
+                                                >
+                                                    <div>
+                                                        <span>
+                                                            {taskEvaluation.title}
+                                                        </span>
+                                                        <small>
+                                                            {taskEvaluation.details.join(' · ')}
+                                                        </small>
+                                                    </div>
+                                                    <strong>
+                                                        {taskEvaluation.scorePercent}%
+                                                    </strong>
+                                                </div>
+                                            ),
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="skychart-current-values">
                                 <span>
                                     Seed
@@ -1846,6 +1935,11 @@ function SkyChartsPage() {
                                 selectedStarId={selectedStarId}
                                 onStarSelect={handleStarSelect}
                                 starSelectionEnabled={starSelectionEnabled}
+                                preferredStarIds={
+                                    activeTask?.kind === 'asterisms'
+                                        ? requiredAsterismStarIds
+                                        : undefined
+                                }
                                 pointSelectionEnabled={pointSelectionEnabled}
                                 onChartPointSelect={handleChartPointSelect}
                                 markers={answerMarkers}

@@ -1,10 +1,11 @@
 import type { CatalogStar } from './types'
 
-const STELLARIUM_WESTERN_URL = (
+// Фиксируем эталон на конкретном релизе Stellarium, чтобы рисунок
+// созвездий не менялся сам по себе при обновлениях upstream.
+const STELLARIUM_MODERN_URL = (
     'https://raw.githubusercontent.com/'
-    + 'Stellarium/stellarium-skycultures/'
-    + '014fbb5e59233d133c22f9811af96b67d05a95c9/'
-    + 'western/index.json'
+    + 'Stellarium/stellarium/'
+    + 'v26.2/skycultures/modern/index.json'
 )
 
 const HIPPARCOS_STARS_URL = (
@@ -75,7 +76,7 @@ function finiteNumber(value: unknown) {
 function positiveInteger(value: unknown) {
     const number = finiteNumber(value)
 
-    if (number === null || !Number.isInteger(number) || number <= 0) {
+    if (!number || !Number.isInteger(number) || number <= 0) {
         return null
     }
 
@@ -98,6 +99,9 @@ function parseStellariumLines(value: unknown) {
             continue
         }
 
+        // В Modern (IAU) созвездиях Stellarium 26.2 линии IAU
+        // задаются HIP-номерами. Строковые Gaia-id, встречающиеся в
+        // дополнительных asterisms, здесь намеренно не используются.
         const hips = rawLine
             .map(positiveInteger)
             .filter((hip): hip is number => hip !== null)
@@ -108,6 +112,22 @@ function parseStellariumLines(value: unknown) {
     }
 
     return lines
+}
+
+function parseIauCode(rawConstellation: Record<string, unknown>) {
+    if (typeof rawConstellation.iau === 'string') {
+        return rawConstellation.iau
+    }
+
+    if (typeof rawConstellation.id !== 'string') {
+        return null
+    }
+
+    const match = rawConstellation.id.match(
+        /^CON\s+\S+\s+([A-Za-z0-9]{3})$/u,
+    )
+
+    return match?.[1] ?? null
 }
 
 function parseConstellations(value: unknown) {
@@ -122,9 +142,7 @@ function parseConstellations(value: unknown) {
             continue
         }
 
-        const iau = typeof rawConstellation.iau === 'string'
-            ? rawConstellation.iau
-            : null
+        const iau = parseIauCode(rawConstellation)
         const lines = parseStellariumLines(rawConstellation.lines)
 
         if (!iau || lines.length === 0) {
@@ -243,7 +261,7 @@ export async function loadStellariumWesternReference(
     signal: AbortSignal,
 ): Promise<StellariumWesternReference> {
     const [rawStellarium, rawHipparcos] = await Promise.all([
-        fetchJson(STELLARIUM_WESTERN_URL, signal),
+        fetchJson(STELLARIUM_MODERN_URL, signal),
         fetchJson(HIPPARCOS_STARS_URL, signal),
     ])
     const constellations = parseConstellations(rawStellarium)

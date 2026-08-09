@@ -20,6 +20,10 @@ type BuildSkyChartAnswerMarkersOptions = {
     activeTask: SkyChartExerciseTask
     projectedStarsById: ReadonlyMap<string, ProjectedStar>
     starDeckById: ReadonlyMap<string, Star>
+    markerStatuses?: Readonly<Record<
+        string,
+        'correct' | 'partial' | 'incorrect'
+    >>
 }
 
 
@@ -28,6 +32,7 @@ export function buildSkyChartAnswerMarkers({
     activeTask,
     projectedStarsById,
     starDeckById,
+    markerStatuses,
 }: BuildSkyChartAnswerMarkersOptions) {
     const markers: SkyChartMarker[] = []
     const chartTasks = session.exercise.tasks.filter(
@@ -56,6 +61,7 @@ export function buildSkyChartAnswerMarkers({
                     label: REFERENCE_POINT_LABELS[marker.targetId],
                     shape: 'cross',
                     active,
+                    status: markerStatuses?.[marker.id],
                 })
             })
             continue
@@ -70,6 +76,8 @@ export function buildSkyChartAnswerMarkers({
                     label: BOUNDARY_CROSSING_LABELS[marker.targetId],
                     shape: 'dot',
                     active,
+                    status: markerStatuses?.[marker.id],
+                    labelPlacement: 'inward',
                 })
             })
             continue
@@ -84,6 +92,7 @@ export function buildSkyChartAnswerMarkers({
                     label: `M${marker.messierNumber}`,
                     shape: 'triangle',
                     active,
+                    status: markerStatuses?.[marker.id],
                 })
             })
             continue
@@ -118,6 +127,7 @@ export function buildSkyChartAnswerMarkers({
                     ),
                     shape: 'cross',
                     active,
+                    status: markerStatuses?.[marker.id],
                 })
             })
         }

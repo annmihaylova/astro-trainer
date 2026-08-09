@@ -299,3 +299,68 @@
 .sky-chart-answer-marker--inactive {
     opacity: 0.28;
 }
+
+.skychart-global-check {
+    display: grid;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+}
+
+.skychart-global-check > .button {
+    width: 100%;
+    margin: 0;
+}
+
+.skychart-global-result {
+    display: grid;
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid rgba(197, 184, 255, 0.24);
+    border-radius: 13px;
+    background: rgba(154, 124, 255, 0.055);
+}
+
+.skychart-global-result > strong {
+    padding: 12px;
+    color: var(--text);
+    border-bottom: 1px solid rgba(197, 184, 255, 0.18);
+    font-size: 13px;
+}
+
+.skychart-global-result-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 10px 12px;
+    align-items: center;
+    border-bottom: 1px solid rgba(197, 184, 255, 0.12);
+}
+
+.skychart-global-result-row:last-child {
+    border-bottom: 0;
+}
+
+.skychart-global-result-row > div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.skychart-global-result-row span {
+    color: var(--text);
+    font-size: 10px;
+    font-weight: 650;
+}
+
+.skychart-global-result-row small {
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.35;
+}
+
+.skychart-global-result-row > strong {
+    color: var(--primary-light);
+    font-size: 12px;
+}
