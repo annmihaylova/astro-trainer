@@ -1,75 +1,154 @@
-# React + TypeScript + Vite
+<div align="center">
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+# Astro Trainer
 
-Currently, two official plugins are available:
+Интерактивный тренажёр для подготовки к отборам на международные олимпиады по астрономии и астрофизике.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+[**Открыть Astro Trainer →**](https://astro-trainer.vercel.app/)
 
-## React Compiler
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.141-009688?logo=fastapi&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+</div>
 
-## Expanding the ESLint configuration
+## О проекте
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Astro Trainer собирает в одном месте материалы для быстрого повторения и интерактивные задания по четырём частям астрономических отборов: наблюдательному, блицу, практическому и теоретическому турам.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Основная идея проекта — не просто хранить конспекты, а превращать подготовку в тренировку: показывать карточки в нужном порядке, сохранять прогресс, генерировать новые варианты заданий и автоматически проверять ответы там, где это возможно.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Что уже работает
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Карточки объектов Мессье
 
+- все 110 объектов каталога;
+- задания на узнавание объекта и его положения на небе;
+- фотографии, карты расположения, созвездия и координаты J2000;
+- чередование типов вопросов и интервальные повторения;
+- отдельный прогресс для каждого объекта.
+
+### Карточки звёзд
+
+- каталог из 229 звёзд с названием, обозначением Байера и положением на карте;
+- два режима: 117 основных звёзд или полный каталог;
+- вопросы на название и расположение;
+- интервальные повторения и сохранение очереди карточек.
+
+### Тренажёр скайчартов
+
+- два типа карт: видимая полусфера и произвольный участок небесной сферы;
+- ручная настройка параметров или генерация случайного варианта;
+- задания на точки небесной сферы, пересечения координатных линий с границей карты, звёзды, объекты Мессье, астеризмы и определение параметров карты;
+- рисование линий созвездий прямо по звёздам;
+- автоматическая проверка каждого задания и общий результат в процентах;
+- эталонные рисунки созвездий из зафиксированной версии Stellarium.
+
+### Аккаунт и прогресс
+
+- регистрация и вход по JWT;
+- подтверждение электронной почты;
+- синхронизация прогресса через backend между разными устройствами;
+- личный кабинет с отдельной статистикой по Мессье и звёздам;
+- возможность сбросить прогресс выбранной колоды.
+
+## Разделы проекта
+
+| Раздел | Содержание | Состояние |
+|---|---|---|
+| **Наблюдательный тур** | Мессье, звёзды, скайчарты и краткая теория | Реализуется, основные тренажёры уже работают |
+| **Блиц** | Карточки со всеми используемыми формулами и краткая теория по математическим методам | В разработке |
+| **Практический тур** | Справочник по Python, Astropy и SciPy, а также решения старых практических туров | Запланировано |
+| **Теоретический тур** | Конспекты, тематические подборки, решения старых квалификаций и астрономический дивертисмент | Запланировано |
+
+## Как устроено обучение по карточкам
+
+Карточка считается выученной после серии из 16 правильных ответов. После правильного ответа она возвращается через постепенно увеличивающийся промежуток, а после ошибки серия сбрасывается и карточка снова появляется почти сразу. Вопросы на название и положение чередуются, поэтому объект нельзя выучить только с одной стороны.
+
+Прогресс и текущая очередь сохраняются на сервере. Локальное хранилище используется как кэш, поэтому продолжить тренировку можно после входа с другого устройства.
+
+## Технологии
+
+**Frontend:** React 19, TypeScript, Vite, React Router, SVG и CSS.
+
+**Backend:** FastAPI, SQLAlchemy, SQLite, Pydantic, JWT и Argon2.
+
+**Данные для скайчартов:** звёздный каталог, проекции и собственная логика проверки; линии созвездий взяты из [Stellarium](https://github.com/Stellarium/stellarium/tree/v26.2/skycultures/modern), вспомогательные каталоги и границы созвездий — из [d3-celestial](https://github.com/ofrohn/d3-celestial).
+
+## Локальный запуск
+
+Понадобятся Node.js, npm и Python 3.12+.
+
+### 1. Backend
+
+```bash
+cd backend
+python -m venv .venv
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Активируйте виртуальное окружение:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+# Linux / macOS
+source .venv/bin/activate
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
 ```
+
+Установите зависимости, создайте локальный секрет и запустите API:
+
+```bash
+pip install -r requirements.txt
+python -c "import secrets; open('.env', 'w', encoding='utf-8').write('JWT_SECRET=' + secrets.token_hex(64) + '\n')"
+python -m uvicorn app.main:app --reload
+```
+
+Backend будет доступен по адресу `http://127.0.0.1:8000`, а документация API — по адресу `http://127.0.0.1:8000/docs`.
+
+### 2. Frontend
+
+В новом терминале из корня проекта:
+
+```bash
+npm install
+npm run dev
+```
+
+Frontend запустится на `http://localhost:5173`. В корневом `.env` уже указан локальный адрес API:
+
+```env
+VITE_API_URL=http://127.0.0.1:8000
+```
+
+## Структура репозитория
+
+```text
+astro-trainer/
+├── public/                    # изображения и каталог звёзд для скайчартов
+├── scripts/                   # подготовка астрономических данных
+├── src/
+│   ├── api/                   # запросы к backend
+│   ├── auth/                  # авторизация и защищённые маршруты
+│   ├── components/            # карточки и общие компоненты
+│   ├── data/                  # каталоги Мессье и звёзд
+│   ├── features/skycharts/    # генерация, отрисовка и проверка скайчартов
+│   ├── pages/                 # страницы приложения
+│   └── progress/              # расчёт статистики обучения
+└── backend/
+    └── app/                   # FastAPI, модели базы данных и бизнес-логика
+```
+
+## Ближайшие задачи
+
+- добавить карточки с формулами для блица;
+- оформить теорию по математическим методам, которые используются в блице;
+- собрать краткий справочник по Astropy, SciPy и типовым приёмам практического тура;
+- добавить решения старых практических и теоретических заданий;
+- расширить теоретическую часть наблюдательного тура.
+
+---
+
+Проект находится в активной разработке.
