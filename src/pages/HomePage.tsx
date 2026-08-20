@@ -74,12 +74,12 @@ const trainingSections = [
         path: '/blitz',
         topics: [
             {
-                title: 'Основные формулы',
+                title: 'Формулы',
                 path: '/blitz',
             },
             {
                 title: 'Теоретическая часть',
-                path: '/blitz',
+                path: '/blitz/theory',
             },
         ],
         theme: 'blue',

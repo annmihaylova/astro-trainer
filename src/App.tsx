@@ -15,6 +15,10 @@ import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import VerifyEmailPage from './pages/auth/VerifyEmailPage'
 
+import BlitzLayout from './pages/blitz/BlitzLayout'
+import BlitzFormulasPage from './pages/blitz/BlitzFormulasPage'
+import BlitzTheoryPage from './pages/blitz/BlitzTheoryPage'
+
 import NablaLayout from './pages/nabla/NablaLayout'
 import NablaOverviewPage from './pages/nabla/NablaOverviewPage'
 import StarsPage from './pages/nabla/StarsPage'
@@ -75,13 +79,18 @@ function App() {
 
                 <Route
                     path="/blitz"
-                    element={
-                        <SectionPlaceholderPage
-                            title="Блиц"
-                            description="Здесь появятся карточки с формулами и быстрые задания."
-                        />
-                    }
-                />
+                    element={<BlitzLayout />}
+                >
+                    <Route
+                        index
+                        element={<BlitzFormulasPage />}
+                    />
+
+                    <Route
+                        path="theory"
+                        element={<BlitzTheoryPage />}
+                    />
+                </Route>
 
                 <Route
                     path="/nabla"

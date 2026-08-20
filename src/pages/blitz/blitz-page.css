@@ -1,0 +1,141 @@
+.blitz-shell {
+    min-height: 100vh;
+}
+
+.blitz-header,
+.blitz-main {
+    width: min(1180px, calc(100% - 40px));
+    margin-inline: auto;
+}
+
+.blitz-header {
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+}
+
+.blitz-topbar {
+    display: flex;
+    min-height: 82px;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.blitz-home-link {
+    color: var(--muted);
+    font-size: 14px;
+    text-decoration: none;
+    transition: color 180ms ease;
+}
+
+.blitz-home-link:hover {
+    color: var(--text);
+}
+
+.blitz-heading {
+    max-width: 850px;
+    padding-block: 70px 50px;
+}
+
+.blitz-heading h1 {
+    margin: 18px 0 24px;
+    color: var(--text);
+    font-size: clamp(50px, 8vw, 92px);
+    font-weight: 620;
+    line-height: 0.96;
+    letter-spacing: -0.06em;
+}
+
+.blitz-navigation {
+    display: flex;
+    gap: 9px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+}
+
+.blitz-navigation-link {
+    flex: 0 0 auto;
+    padding: 10px 15px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.025);
+    font-size: 13px;
+    font-weight: 650;
+    text-decoration: none;
+    transition:
+        color 180ms ease,
+        border-color 180ms ease,
+        background 180ms ease;
+}
+
+.blitz-navigation-link:hover {
+    color: var(--text);
+    border-color: rgba(111, 207, 255, 0.5);
+}
+
+.blitz-navigation-link--active {
+    color: #07111a;
+    border-color: transparent;
+    background:
+        linear-gradient(
+            120deg,
+            #ffffff,
+            #8fdcff
+        );
+}
+
+.blitz-main {
+    padding-block: 70px 110px;
+}
+
+.blitz-intro {
+    max-width: 760px;
+    margin-bottom: 42px;
+}
+
+.blitz-intro h2 {
+    margin: 14px 0 18px;
+    color: var(--text);
+    font-size: clamp(40px, 6vw, 68px);
+    font-weight: 610;
+    line-height: 1;
+    letter-spacing: -0.05em;
+}
+
+.blitz-theory-placeholder {
+    padding: 28px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    background:
+        linear-gradient(
+            145deg,
+            rgba(87, 191, 255, 0.08),
+            transparent 52%
+        ),
+        var(--surface);
+}
+
+.blitz-theory-placeholder p {
+    margin: 0;
+    line-height: 1.7;
+}
+
+@media (max-width: 680px) {
+    .blitz-header,
+    .blitz-main {
+        width: min(100% - 28px, 1180px);
+    }
+
+    .blitz-heading {
+        padding-block: 55px 40px;
+    }
+
+    .blitz-main {
+        padding-block: 55px 80px;
+    }
+
+    .blitz-intro {
+        margin-bottom: 28px;
+    }
+}
