@@ -3661,3 +3661,14 @@ export const blitzFormulas: readonly BlitzFormula[] = [
         ]
     }
 ]
+
+
+export const blitzFormulaCategories:
+    readonly string[] = [
+        ...new Set(
+            blitzFormulas.map(
+                (formula) =>
+                    formula.category,
+            ),
+        ),
+    ]

@@ -10,6 +10,23 @@
             name="description"
             content="Astro Trainer — подготовка к международным отборам по астрономии."
         />
+
+        <script>
+            window.MathJax = {
+                startup: {
+                    typeset: false,
+                },
+                options: {
+                    enableMenu: false,
+                },
+            }
+        </script>
+        <script
+            defer
+            id="astro-trainer-mathjax"
+            src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js"
+        ></script>
+
         <title>Astro Trainer — подготовка к отборам</title>
     </head>
     <body>

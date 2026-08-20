@@ -11,6 +11,7 @@ import type {
 } from 'react'
 
 import {
+    blitzFormulaCategories,
     blitzFormulas,
 } from '../data/blitzFormulas'
 import MathFormula from './MathFormula'
@@ -20,6 +21,7 @@ import './BlitzFormulaTrainer.css'
 type StoredDeckState = {
     queue: string[]
     mastered: string[]
+    categories: string[]
 }
 
 
@@ -39,7 +41,7 @@ type ActiveGesture = {
 
 
 const STORAGE_KEY =
-    'astro-trainer:blitz-formulas:v1'
+    'astro-trainer:blitz-formulas:v2'
 
 const SWIPE_THRESHOLD = 72
 const GESTURE_LOCK_THRESHOLD = 10
@@ -71,14 +73,51 @@ function shuffle<T>(items: readonly T[]): T[] {
 }
 
 
-function createInitialState(): StoredDeckState {
+function getFormulaIdsForCategories(
+    categories: readonly string[],
+): string[] {
+    const categorySet =
+        new Set(categories)
+
+    return blitzFormulas
+        .filter(
+            (formula) =>
+                categorySet.has(
+                    formula.category,
+                ),
+        )
+        .map(
+            (formula) => formula.id,
+        )
+}
+
+
+function createInitialState(
+    categories:
+        readonly string[] =
+            blitzFormulaCategories,
+): StoredDeckState {
+    const normalizedCategories =
+        blitzFormulaCategories.filter(
+            (category) =>
+                categories.includes(
+                    category,
+                ),
+        )
+
+    const activeCategories =
+        normalizedCategories.length > 0
+            ? normalizedCategories
+            : [...blitzFormulaCategories]
+
     return {
         queue: shuffle(
-            blitzFormulas.map(
-                (formula) => formula.id,
+            getFormulaIdsForCategories(
+                activeCategories,
             ),
         ),
         mastered: [],
+        categories: activeCategories,
     }
 }
 
@@ -88,7 +127,10 @@ function loadState(): StoredDeckState {
         return createInitialState()
     }
 
-    const validIds =
+    const validCategorySet =
+        new Set(blitzFormulaCategories)
+
+    const validIdSet =
         new Set(
             blitzFormulas.map(
                 (formula) => formula.id,
@@ -108,13 +150,44 @@ function loadState(): StoredDeckState {
         const parsed =
             JSON.parse(raw) as Partial<StoredDeckState>
 
+        const parsedCategories = [
+            ...new Set(
+                (parsed.categories ?? [])
+                    .filter(
+                        (category): category is string =>
+                            typeof category === 'string'
+                            && validCategorySet.has(
+                                category,
+                            ),
+                    ),
+            ),
+        ]
+
+        const categories =
+            parsedCategories.length > 0
+                ? blitzFormulaCategories.filter(
+                    (category) =>
+                        parsedCategories.includes(
+                            category,
+                        ),
+                )
+                : [...blitzFormulaCategories]
+
+        const activeIdSet =
+            new Set(
+                getFormulaIdsForCategories(
+                    categories,
+                ),
+            )
+
         const mastered = [
             ...new Set(
                 (parsed.mastered ?? [])
                     .filter(
                         (id): id is string =>
                             typeof id === 'string'
-                            && validIds.has(id),
+                            && validIdSet.has(id)
+                            && activeIdSet.has(id),
                     ),
             ),
         ]
@@ -128,7 +201,8 @@ function loadState(): StoredDeckState {
                     .filter(
                         (id): id is string =>
                             typeof id === 'string'
-                            && validIds.has(id)
+                            && validIdSet.has(id)
+                            && activeIdSet.has(id)
                             && !masteredSet.has(id),
                     ),
             ),
@@ -141,16 +215,16 @@ function loadState(): StoredDeckState {
             ])
 
         const newlyAdded =
-            blitzFormulas
-                .map(
-                    (formula) => formula.id,
-                )
+            getFormulaIdsForCategories(
+                categories,
+            )
                 .filter(
                     (id) =>
                         !alreadyPresent.has(id),
                 )
 
         return {
+            categories,
             mastered,
             queue: [
                 ...queue,
@@ -197,6 +271,13 @@ function BlitzFormulaTrainer() {
             loadState,
         )
 
+    const [
+        selectedCategories,
+        setSelectedCategories,
+    ] = useState<string[]>(
+        () => [...loadState().categories],
+    )
+
     const [isAnswerVisible, setIsAnswerVisible] =
         useState(false)
 
@@ -221,12 +302,42 @@ function BlitzFormulaTrainer() {
             [],
         )
 
+    const categoryCounts =
+        useMemo(
+            () => new Map(
+                blitzFormulaCategories.map(
+                    (category) => [
+                        category,
+                        blitzFormulas.filter(
+                            (formula) =>
+                                formula.category
+                                === category,
+                        ).length,
+                    ]),
+            ),
+            [],
+        )
+
     const currentFormula =
         state.queue.length > 0
             ? formulasById.get(
                   state.queue[0],
               ) ?? null
             : null
+
+    const activeFormulaCount =
+        getFormulaIdsForCategories(
+            state.categories,
+        ).length
+
+    const selectedFormulaCount =
+        getFormulaIdsForCategories(
+            selectedCategories,
+        ).length
+
+    const allCategoriesSelected =
+        selectedCategories.length
+        === blitzFormulaCategories.length
 
 
     function commitState(
@@ -252,6 +363,7 @@ function BlitzFormulaTrainer() {
 
         if (knowsFormula) {
             commitState({
+                ...state,
                 queue: remaining,
                 mastered: [
                     ...state.mastered,
@@ -282,20 +394,52 @@ function BlitzFormulaTrainer() {
 
 
     function reshuffleRemaining() {
-        const nextState = {
+        commitState({
             ...state,
             queue: shuffle(state.queue),
-        }
-
-        commitState(nextState)
+        })
     }
 
 
     function restartDeck() {
-        const nextState =
-            createInitialState()
+        commitState(
+            createInitialState(
+                state.categories,
+            ),
+        )
+    }
 
-        commitState(nextState)
+
+    function startSelectedDeck() {
+        if (
+            selectedCategories.length === 0
+        ) {
+            return
+        }
+
+        commitState(
+            createInitialState(
+                selectedCategories,
+            ),
+        )
+    }
+
+
+    function toggleSelectedCategory(
+        category: string,
+    ) {
+        setSelectedCategories(
+            (current) =>
+                current.includes(category)
+                    ? current.filter(
+                        (item) =>
+                            item !== category,
+                    )
+                    : [
+                        ...current,
+                        category,
+                    ],
+        )
     }
 
 
@@ -528,25 +672,141 @@ function BlitzFormulaTrainer() {
     }
 
 
+    const categoryPicker = (
+        <section className="blitz-deck-picker">
+            <div className="blitz-deck-picker-header">
+                <div>
+                    <p className="blitz-card-kicker">
+                        Выбор колоды
+                    </p>
+
+                    <h3>
+                        Какие разделы учить?
+                    </h3>
+                </div>
+
+                <div className="blitz-deck-picker-meta">
+                    <strong>
+                        {selectedFormulaCount}
+                    </strong>
+                    <span>карточек выбрано</span>
+                </div>
+            </div>
+
+            <div className="blitz-deck-picker-actions">
+                <button
+                    className={
+                        allCategoriesSelected
+                            ? (
+                                'blitz-filter-control '
+                                + 'blitz-filter-control--active'
+                            )
+                            : 'blitz-filter-control'
+                    }
+                    onClick={() => {
+                        setSelectedCategories(
+                            [...blitzFormulaCategories],
+                        )
+                    }}
+                    type="button"
+                >
+                    Все разделы
+                </button>
+
+                <button
+                    className="blitz-filter-control"
+                    onClick={() => {
+                        setSelectedCategories([])
+                    }}
+                    type="button"
+                >
+                    Снять всё
+                </button>
+            </div>
+
+            <div
+                aria-label="Разделы формул"
+                className="blitz-category-options"
+                role="group"
+            >
+                {blitzFormulaCategories.map(
+                    (category) => {
+                        const selected =
+                            selectedCategories.includes(
+                                category,
+                            )
+
+                        return (
+                            <button
+                                aria-pressed={selected}
+                                className={
+                                    selected
+                                        ? (
+                                            'blitz-category-option '
+                                            + 'blitz-category-option--active'
+                                        )
+                                        : 'blitz-category-option'
+                                }
+                                key={category}
+                                onClick={() => {
+                                    toggleSelectedCategory(
+                                        category,
+                                    )
+                                }}
+                                type="button"
+                            >
+                                <span>
+                                    {category}
+                                </span>
+
+                                <strong>
+                                    {
+                                        categoryCounts.get(
+                                            category,
+                                        ) ?? 0
+                                    }
+                                </strong>
+                            </button>
+                        )
+                    },
+                )}
+            </div>
+
+            <button
+                className="blitz-button blitz-button--primary blitz-start-selection"
+                disabled={
+                    selectedCategories.length === 0
+                }
+                onClick={startSelectedDeck}
+                type="button"
+            >
+                Начать выбранную колоду
+            </button>
+        </section>
+    )
+
+
     if (!currentFormula) {
         return (
             <section className="blitz-trainer">
+                {categoryPicker}
+
                 <div className="blitz-complete">
                     <p className="blitz-card-kicker">
                         Проход завершён
                     </p>
 
                     <h2>
-                        Вся колода пройдена
+                        Выбранная колода пройдена
                     </h2>
 
                     <p>
-                        Ты отметил как известные все
+                        Все
                         {' '}
-                        {blitzFormulas.length}
+                        {activeFormulaCount}
                         {' '}
-                        карточки. Можно начать новый
-                        перемешанный проход.
+                        карточки выбранных разделов
+                        отмечены как известные.
                     </p>
 
                     <button
@@ -572,6 +832,8 @@ function BlitzFormulaTrainer() {
 
     return (
         <section className="blitz-trainer">
+            {categoryPicker}
+
             <div className="blitz-toolbar">
                 <div className="blitz-stat">
                     <span>Осталось</span>
@@ -588,9 +850,9 @@ function BlitzFormulaTrainer() {
                 </div>
 
                 <div className="blitz-stat">
-                    <span>Всего</span>
+                    <span>В колоде</span>
                     <strong>
-                        {blitzFormulas.length}
+                        {activeFormulaCount}
                     </strong>
                 </div>
 

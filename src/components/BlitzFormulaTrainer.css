@@ -516,3 +516,429 @@
         padding-top: 14px;
     }
 }
+
+
+/* ================================================================
+   Выбор разделов колоды
+   ================================================================ */
+
+.blitz-deck-picker {
+    display: grid;
+    padding: 18px;
+    gap: 14px;
+    border: 1px solid rgba(116, 178, 255, 0.15);
+    border-radius: 20px;
+    background:
+        linear-gradient(
+            135deg,
+            rgba(57, 139, 255, 0.09),
+            transparent 52%
+        ),
+        rgba(7, 13, 26, 0.76);
+}
+
+.blitz-deck-picker-header {
+    display: flex;
+    gap: 20px;
+    align-items: end;
+    justify-content: space-between;
+}
+
+.blitz-deck-picker-header h3 {
+    margin: 7px 0 0;
+    color: #f7fbff;
+    font-size: 20px;
+    font-weight: 650;
+}
+
+.blitz-deck-picker-meta {
+    display: grid;
+    justify-items: end;
+}
+
+.blitz-deck-picker-meta strong {
+    color: #f7fbff;
+    font-size: 22px;
+}
+
+.blitz-deck-picker-meta span {
+    color: rgba(232, 241, 255, 0.48);
+    font-size: 10px;
+}
+
+.blitz-deck-picker-actions {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+.blitz-filter-control,
+.blitz-category-option {
+    color: rgba(232, 241, 255, 0.68);
+    border: 1px solid rgba(116, 178, 255, 0.15);
+    background: rgba(7, 15, 29, 0.72);
+    cursor: pointer;
+    font: inherit;
+    transition:
+        color 160ms ease,
+        border-color 160ms ease,
+        background 160ms ease,
+        transform 160ms ease;
+}
+
+.blitz-filter-control {
+    padding: 8px 11px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.blitz-filter-control:hover,
+.blitz-category-option:hover {
+    color: #f7fbff;
+    border-color: rgba(116, 178, 255, 0.42);
+}
+
+.blitz-filter-control--active {
+    color: #07111f;
+    border-color: transparent;
+    background: linear-gradient(
+        120deg,
+        #ffffff,
+        #9acfff
+    );
+}
+
+.blitz-category-options {
+    display: grid;
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.blitz-category-option {
+    display: flex;
+    min-height: 48px;
+    padding: 10px 12px;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 12px;
+    text-align: left;
+}
+
+.blitz-category-option span {
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.3;
+}
+
+.blitz-category-option strong {
+    min-width: 31px;
+    padding: 4px 7px;
+    color: #9dccff;
+    border-radius: 999px;
+    background: rgba(57, 139, 255, 0.1);
+    font-size: 10px;
+    text-align: center;
+}
+
+.blitz-category-option--active {
+    color: #f7fbff;
+    border-color: rgba(116, 178, 255, 0.45);
+    background:
+        linear-gradient(
+            120deg,
+            rgba(57, 139, 255, 0.18),
+            rgba(57, 139, 255, 0.06)
+        ),
+        rgba(8, 18, 34, 0.9);
+}
+
+.blitz-category-option--active strong {
+    color: #07111f;
+    background: #a7d4ff;
+}
+
+.blitz-start-selection {
+    justify-self: start;
+}
+
+.blitz-start-selection:disabled {
+    cursor: not-allowed;
+    opacity: 0.35;
+    transform: none;
+}
+
+
+/* ================================================================
+   MathJax
+   ================================================================ */
+
+.math-formula {
+    position: relative;
+    display: grid;
+    min-height: 50px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    align-items: center;
+    color: #f8fbff;
+    opacity: 1;
+    scrollbar-color:
+        rgba(116, 178, 255, 0.28)
+        transparent;
+    scrollbar-width: thin;
+}
+
+.math-formula:not(.math-formula--ready):not(.math-formula--error)::before {
+    width: min(280px, 62%);
+    height: 14px;
+    margin-inline: auto;
+    content: '';
+    border-radius: 999px;
+    background:
+        linear-gradient(
+            90deg,
+            rgba(116, 178, 255, 0.05),
+            rgba(116, 178, 255, 0.18),
+            rgba(116, 178, 255, 0.05)
+        );
+    background-size: 200% 100%;
+    animation: blitz-math-loading 1.25s linear infinite;
+}
+
+@keyframes blitz-math-loading {
+    to {
+        background-position: -200% 0;
+    }
+}
+
+.math-formula mjx-container {
+    min-width: max-content;
+    margin: 0 auto !important;
+    padding: 6px 2px 8px;
+    font-size: clamp(105%, 2.1vw, 135%) !important;
+    text-align: center;
+}
+
+.math-formula--error {
+    display: block;
+    padding: 12px;
+    color: #d9e8ff;
+    border: 1px dashed rgba(116, 178, 255, 0.24);
+    border-radius: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+}
+
+
+/* ================================================================
+   Полный список формул
+   ================================================================ */
+
+.blitz-catalog {
+    display: grid;
+    gap: 26px;
+}
+
+.blitz-catalog-navigation {
+    display: flex;
+    padding: 12px;
+    gap: 7px;
+    overflow-x: auto;
+    border: 1px solid rgba(116, 178, 255, 0.13);
+    border-radius: 16px;
+    background: rgba(7, 13, 26, 0.72);
+    scrollbar-width: thin;
+}
+
+.blitz-catalog-navigation a {
+    flex: 0 0 auto;
+    padding: 8px 11px;
+    color: rgba(232, 241, 255, 0.64);
+    border: 1px solid rgba(116, 178, 255, 0.12);
+    border-radius: 999px;
+    background: rgba(57, 139, 255, 0.04);
+    font-size: 10px;
+    font-weight: 680;
+    text-decoration: none;
+}
+
+.blitz-catalog-navigation a:hover {
+    color: #f7fbff;
+    border-color: rgba(116, 178, 255, 0.4);
+}
+
+.blitz-catalog-sections {
+    display: grid;
+    gap: 58px;
+}
+
+.blitz-catalog-section {
+    scroll-margin-top: 18px;
+}
+
+.blitz-catalog-section-header {
+    display: flex;
+    margin-bottom: 14px;
+    gap: 20px;
+    align-items: end;
+    justify-content: space-between;
+}
+
+.blitz-catalog-section-header > div {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+}
+
+.blitz-catalog-section-header span {
+    color: #8fc5ff;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.blitz-catalog-section-header h3 {
+    margin: 0;
+    color: #f7fbff;
+    font-size: clamp(26px, 4vw, 42px);
+    font-weight: 620;
+    letter-spacing: -0.04em;
+}
+
+.blitz-catalog-section-header p {
+    margin: 0;
+    color: rgba(232, 241, 255, 0.44);
+    font-size: 11px;
+}
+
+.blitz-catalog-items {
+    display: grid;
+    gap: 9px;
+}
+
+.blitz-catalog-item {
+    display: grid;
+    grid-template-columns:
+        minmax(180px, 0.34fr)
+        minmax(0, 1fr);
+    padding: 16px 18px;
+    gap: 18px 24px;
+    border: 1px solid rgba(116, 178, 255, 0.12);
+    border-radius: 16px;
+    background:
+        linear-gradient(
+            120deg,
+            rgba(57, 139, 255, 0.05),
+            transparent 36%
+        ),
+        rgba(6, 12, 24, 0.68);
+}
+
+.blitz-catalog-item h4 {
+    margin: 6px 0 0;
+    color: #edf6ff;
+    font-size: 15px;
+    font-weight: 660;
+    line-height: 1.35;
+}
+
+.blitz-formula-list--catalog {
+    margin: 0;
+}
+
+.blitz-catalog-item .blitz-formula-panel {
+    min-height: 72px;
+    padding: 10px 13px;
+}
+
+.blitz-catalog-item .blitz-formula-note,
+.blitz-catalog-item .blitz-formula-details {
+    grid-column: 2;
+}
+
+
+@media (max-width: 760px) {
+    .blitz-deck-picker {
+        padding: 13px;
+        gap: 10px;
+        border-radius: 16px;
+    }
+
+    .blitz-deck-picker-header {
+        align-items: start;
+    }
+
+    .blitz-deck-picker-header h3 {
+        font-size: 16px;
+    }
+
+    .blitz-deck-picker-meta strong {
+        font-size: 18px;
+    }
+
+    .blitz-deck-picker-meta span {
+        font-size: 8px;
+    }
+
+    .blitz-category-options {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+
+    .blitz-category-option {
+        min-height: 42px;
+        padding: 8px 10px;
+    }
+
+    .blitz-category-option span {
+        font-size: 10px;
+    }
+
+    .blitz-start-selection {
+        width: 100%;
+    }
+
+    .math-formula mjx-container {
+        font-size: 102% !important;
+    }
+
+    .blitz-catalog {
+        gap: 18px;
+    }
+
+    .blitz-catalog-sections {
+        gap: 42px;
+    }
+
+    .blitz-catalog-section-header {
+        align-items: start;
+    }
+
+    .blitz-catalog-section-header > div {
+        display: grid;
+        gap: 4px;
+    }
+
+    .blitz-catalog-section-header h3 {
+        font-size: 28px;
+    }
+
+    .blitz-catalog-item {
+        grid-template-columns: 1fr;
+        padding: 12px;
+        gap: 9px;
+        border-radius: 14px;
+    }
+
+    .blitz-catalog-item h4 {
+        margin: 0 2px;
+        font-size: 13px;
+    }
+
+    .blitz-catalog-item .blitz-formula-note,
+    .blitz-catalog-item .blitz-formula-details {
+        grid-column: 1;
+    }
+}

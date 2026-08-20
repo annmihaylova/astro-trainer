@@ -4,18 +4,25 @@ import {
 } from 'react'
 
 
+type MathJaxConversionOptions = {
+    display?: boolean
+    containerWidth?: number
+}
+
+
 type MathJaxRuntime = {
-    typesetPromise?: (
-        elements?: HTMLElement[],
-    ) => Promise<void>
+    tex2chtmlPromise?: (
+        math: string,
+        options?: MathJaxConversionOptions,
+    ) => Promise<HTMLElement>
 
-    typesetClear?: (
-        elements?: HTMLElement[],
-    ) => void
+    startup?: {
+        typeset?: boolean
+    }
 
-    tex?: unknown
-    startup?: unknown
-    options?: unknown
+    options?: {
+        enableMenu?: boolean
+    }
 }
 
 
@@ -35,43 +42,61 @@ type MathFormulaProps = {
 const MATHJAX_SCRIPT_ID =
     'astro-trainer-mathjax'
 
-const MATHJAX_URL =
-    'https://cdn.jsdelivr.net/npm/mathjax@4.0.0/tex-mml-chtml.js'
+const MATHJAX_FALLBACK_URL =
+    'https://unpkg.com/mathjax@4/tex-chtml.js'
 
 let mathJaxPromise:
-    Promise<void> | null = null
+    Promise<MathJaxRuntime> | null = null
 
 
-function waitForMathJax(): Promise<void> {
+function isMathJaxReady(): boolean {
+    return (
+        typeof window.MathJax
+            ?.tex2chtmlPromise
+        === 'function'
+    )
+}
+
+
+function createMathJaxConfig(): MathJaxRuntime {
+    return {
+        startup: {
+            typeset: false,
+        },
+        options: {
+            enableMenu: false,
+        },
+    }
+}
+
+
+function waitForMathJax(
+    timeoutMs: number,
+): Promise<MathJaxRuntime> {
     return new Promise((resolve, reject) => {
         const startedAt = Date.now()
 
         const check = () => {
-            if (
-                typeof window.MathJax
-                    ?.typesetPromise
-                === 'function'
-            ) {
-                resolve()
+            if (isMathJaxReady()) {
+                resolve(window.MathJax as MathJaxRuntime)
                 return
             }
 
             if (
                 Date.now() - startedAt
-                > 15_000
+                >= timeoutMs
             ) {
                 reject(
                     new Error(
                         'MathJax did not initialise.',
                     ),
                 )
-
                 return
             }
 
             window.setTimeout(
                 check,
-                40,
+                50,
             )
         }
 
@@ -80,93 +105,93 @@ function waitForMathJax(): Promise<void> {
 }
 
 
-function loadMathJax(): Promise<void> {
+function loadFallbackMathJax():
+    Promise<MathJaxRuntime> {
+    return new Promise((resolve, reject) => {
+        document.getElementById(
+            MATHJAX_SCRIPT_ID,
+        )?.remove()
+
+        window.MathJax =
+            createMathJaxConfig()
+
+        const script =
+            document.createElement('script')
+
+        script.id =
+            MATHJAX_SCRIPT_ID
+
+        script.src =
+            MATHJAX_FALLBACK_URL
+
+        script.async = true
+
+        script.addEventListener(
+            'load',
+            () => {
+                void waitForMathJax(12_000)
+                    .then(resolve)
+                    .catch(reject)
+            },
+            { once: true },
+        )
+
+        script.addEventListener(
+            'error',
+            () => {
+                reject(
+                    new Error(
+                        'MathJax could not be loaded.',
+                    ),
+                )
+            },
+            { once: true },
+        )
+
+        document.head.appendChild(script)
+    })
+}
+
+
+function ensureMathJax():
+    Promise<MathJaxRuntime> {
     if (
         typeof window === 'undefined'
     ) {
-        return Promise.resolve()
+        return Promise.reject(
+            new Error('Browser is unavailable.'),
+        )
     }
 
-    if (
-        typeof window.MathJax
-            ?.typesetPromise
-        === 'function'
-    ) {
-        return Promise.resolve()
+    if (isMathJaxReady()) {
+        return Promise.resolve(
+            window.MathJax as MathJaxRuntime,
+        )
     }
 
     if (mathJaxPromise) {
         return mathJaxPromise
     }
 
-    mathJaxPromise =
-        new Promise((resolve, reject) => {
-            const existingScript =
-                document.getElementById(
-                    MATHJAX_SCRIPT_ID,
-                ) as HTMLScriptElement | null
-
-            if (existingScript) {
-                void waitForMathJax()
-                    .then(resolve)
-                    .catch(reject)
-
-                return
-            }
-
-            window.MathJax = {
-                tex: {
-                    inlineMath: [
-                        ['\\(', '\\)'],
-                    ],
-                    displayMath: [
-                        ['\\[', '\\]'],
-                    ],
-                },
-                startup: {
-                    typeset: false,
-                },
-            }
-
-            const script =
-                document.createElement(
-                    'script',
+    mathJaxPromise = (
+        async () => {
+            /*
+             * index.html заранее загружает MathJax через jsDelivr.
+             * Сначала даём этому скрипту время завершить startup.
+             */
+            try {
+                return await waitForMathJax(
+                    8_000,
                 )
-
-            script.id =
-                MATHJAX_SCRIPT_ID
-
-            script.src =
-                MATHJAX_URL
-
-            script.async = true
-
-            script.addEventListener(
-                'load',
-                () => {
-                    void waitForMathJax()
-                        .then(resolve)
-                        .catch(reject)
-                },
-                { once: true },
-            )
-
-            script.addEventListener(
-                'error',
-                () => {
-                    reject(
-                        new Error(
-                            'MathJax could not be loaded.',
-                        ),
-                    )
-                },
-                { once: true },
-            )
-
-            document.head.appendChild(
-                script,
-            )
-        })
+            } catch {
+                /*
+                 * Если jsDelivr недоступен в конкретной сети,
+                 * автоматически пробуем второй CDN.
+                 */
+                return loadFallbackMathJax()
+            }
+        }
+    )()
 
     return mathJaxPromise
 }
@@ -181,56 +206,130 @@ function MathFormula({
 
 
     useEffect(() => {
-        const element = rootRef.current
+        const currentElement = rootRef.current
 
-        if (!element) {
+        if (currentElement === null) {
             return
         }
 
+        const element: HTMLDivElement =
+            currentElement
+
         let cancelled = false
+        let hasStarted = false
 
         element.classList.remove(
             'math-formula--ready',
             'math-formula--error',
         )
 
-        element.textContent =
-            `\\[\\displaystyle ${tex}\\]`
+        element.replaceChildren()
 
-        void loadMathJax()
-            .then(async () => {
+
+        async function renderFormula() {
+            if (
+                cancelled
+                || hasStarted
+            ) {
+                return
+            }
+
+            hasStarted = true
+
+            try {
+                const mathJax =
+                    await ensureMathJax()
+
                 if (cancelled) {
                     return
                 }
 
-                window.MathJax
-                    ?.typesetClear
-                    ?.([element])
+                const convert =
+                    mathJax.tex2chtmlPromise
 
-                await window.MathJax
-                    ?.typesetPromise
-                    ?.([element])
-
-                if (!cancelled) {
-                    element.classList.add(
-                        'math-formula--ready',
+                if (!convert) {
+                    throw new Error(
+                        'MathJax TeX converter is unavailable.',
                     )
                 }
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    element.classList.add(
-                        'math-formula--error',
+
+                const rendered =
+                    await convert(
+                        tex,
+                        {
+                            display: true,
+                            containerWidth:
+                                Math.max(
+                                    element.clientWidth,
+                                    320,
+                                ),
+                        },
                     )
+
+                if (cancelled) {
+                    return
                 }
-            })
+
+                element.replaceChildren(
+                    rendered,
+                )
+
+                element.classList.add(
+                    'math-formula--ready',
+                )
+            } catch {
+                if (cancelled) {
+                    return
+                }
+
+                /*
+                 * TeX показываем только как аварийный fallback.
+                 * В нормальном состоянии пользователь видит CHTML.
+                 */
+                element.textContent = tex
+
+                element.classList.add(
+                    'math-formula--error',
+                )
+            }
+        }
+
+
+        if (
+            typeof IntersectionObserver
+            === 'undefined'
+        ) {
+            void renderFormula()
+
+            return () => {
+                cancelled = true
+            }
+        }
+
+        const observer =
+            new IntersectionObserver(
+                (entries) => {
+                    if (
+                        entries.some(
+                            (entry) =>
+                                entry.isIntersecting,
+                        )
+                    ) {
+                        observer.disconnect()
+                        void renderFormula()
+                    }
+                },
+                {
+                    rootMargin:
+                        '700px 0px',
+                },
+            )
+
+        observer.observe(element)
 
         return () => {
             cancelled = true
-
-            window.MathJax
-                ?.typesetClear
-                ?.([element])
+            observer.disconnect()
         }
     }, [tex])
 
